@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf ~/.claude/plugins/cache/gptaku-plugins)",
+      "Read(//c/Users/yhlee/.claude/skills/**)",
+      "Bash(mkdir -p \"/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/agents\")",
+      "Bash(mkdir -p \"/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/skills/survey-feedback-orchestrator\")",
+      "Bash(mkdir -p \"/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/skills/survey-data-parser\")",
+      "Bash(mkdir -p \"/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/skills/feedback-report-writer\")",
+      "Bash(mkdir -p '/c/Users/yhlee/Desktop/myprojects/HR AX/survey-feedback/.claude/agents')",
+      "Bash(mkdir -p '/c/Users/yhlee/Desktop/myprojects/HR AX/survey-feedback/.claude/skills')",
+      "Bash(mkdir -p '/c/Users/yhlee/Desktop/myprojects/HR AX/Leadership/.claude/agents')",
+      "Bash(mkdir -p '/c/Users/yhlee/Desktop/myprojects/HR AX/Leadership/.claude/skills')",
+      "Bash(mkdir -p '/c/Users/yhlee/Desktop/myprojects/HR AX/HR-operation/.claude/agents')",
+      "Bash(mv '/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/agents/data-analyst.md' '/c/Users/yhlee/Desktop/myprojects/HR AX/survey-feedback/.claude/agents/')",
+      "Bash(mv '/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/agents/report-writer.md' '/c/Users/yhlee/Desktop/myprojects/HR AX/survey-feedback/.claude/agents/')",
+      "Bash(mv '/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/agents/qa-reviewer.md' '/c/Users/yhlee/Desktop/myprojects/HR AX/survey-feedback/.claude/agents/')",
+      "Bash(mv '/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/skills/survey-feedback-orchestrator' '/c/Users/yhlee/Desktop/myprojects/HR AX/survey-feedback/.claude/skills/')",
+      "Bash(mv '/c/Users/yhlee/Desktop/myprojects/HR AX/.claude/skills/survey-data-parser' '/c/Users/yhlee/Desktop/myprojects/HR AX/survey-feedback/.claude/skills/')",
+      "Bash(cat)",
+      "Read(//c/Users/yhlee/**)"
+    ]
+  }
+}

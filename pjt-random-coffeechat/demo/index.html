@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Serendipity Bot — Teams Demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    background: #f5f5f5;
+    color: #242424;
+    font-size: 14px;
+    overflow: hidden;
+  }
+
+  /* ===== App Shell ===== */
+  .app { display: flex; height: 100vh; }
+
+  /* ===== Title Bar ===== */
+  .titlebar {
+    height: 32px;
+    background: #5b5fc7;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 500;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+  }
+  .titlebar-search {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 4px;
+    width: 480px;
+    font-size: 12px;
+  }
+  .titlebar-search::placeholder { color: rgba(255,255,255,0.7); }
+  .app { padding-top: 32px; }
+
+  /* ===== Left App Bar ===== */
+  .appbar {
+    width: 68px;
+    background: #ebebeb;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    border-right: 1px solid #e0e0e0;
+  }
+  .appbar-item {
+    width: 56px;
+    padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    color: #424242;
+    font-size: 10px;
+    border-left: 2px solid transparent;
+    border-radius: 4px;
+    margin-bottom: 4px;
+  }
+  .appbar-item:hover { background: #e0e0e0; }
+  .appbar-item.active { color: #5b5fc7; border-left-color: #5b5fc7; background: #e0e0e0; }
+  .appbar-icon { font-size: 22px; line-height: 1; }
+
+  /* ===== Chat List Panel ===== */
+  .chatlist {
+    width: 320px;
+    background: #f5f5f5;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+  }
+  .chatlist-header {
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  .chatlist-title { font-size: 18px; font-weight: 600; }
+  .chatlist-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    width: 28px; height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #424242;
+  }
+  .icon-btn:hover { background: #e0e0e0; }
+
+  .chatlist-section { padding: 8px 12px 4px; font-size: 12px; font-weight: 600; color: #616161; }
+  .chatlist-items { flex: 1; overflow-y: auto; }
+  .chat-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin: 0 4px 2px;
+    align-items: center;
+    position: relative;
+  }
+  .chat-item:hover { background: #ebebeb; }
+  .chat-item.active { background: #e1dfdd; }
+  .chat-item.unread .chat-name { font-weight: 700; }
+  .chat-item.unread::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    background: #c4314b;
+    border-radius: 50%;
+  }
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #5b5fc7;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+  .avatar.bot { background: linear-gradient(135deg, #ff7a59, #ff4081); font-size: 18px; }
+  .avatar.green { background: #6264a7; }
+  .avatar.teal { background: #038387; }
+  .chat-meta { flex: 1; min-width: 0; }
+  .chat-name { font-size: 14px; color: #242424; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-preview {
+    font-size: 12px;
+    color: #616161;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+  .chat-time { font-size: 11px; color: #616161; }
+
+  /* ===== Main Panel ===== */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    min-width: 0;
+  }
+  .main-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .main-title { flex: 1; }
+  .main-title-name { font-size: 16px; font-weight: 600; }
+  .main-title-sub { font-size: 12px; color: #616161; margin-top: 2px; }
+  .main-actions { display: flex; gap: 4px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    padding: 0 20px;
+    border-bottom: 1px solid #e0e0e0;
+    gap: 4px;
+  }
+  .tab {
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #424242;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: #5b5fc7; border-bottom-color: #5b5fc7; font-weight: 600; }
+
+  /* ===== Messages ===== */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .msg-day {
+    text-align: center;
+    color: #616161;
+    font-size: 11px;
+    margin: 12px 0 4px;
+    position: relative;
+  }
+  .msg-day::before, .msg-day::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: #e0e0e0;
+  }
+  .msg-day::before { left: 0; }
+  .msg-day::after { right: 0; }
+
+  .msg {
+    display: flex;
+    gap: 12px;
+    max-width: 720px;
+  }
+  .msg-body { flex: 1; min-width: 0; }
+  .msg-meta { display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px; }
+  .msg-author { font-size: 13px; font-weight: 600; }
+  .msg-time { font-size: 11px; color: #616161; }
+  .msg-text {
+    background: #f5f5f5;
+    padding: 10px 14px;
+    border-radius: 4px;
+    line-height: 1.5;
+    font-size: 14px;
+    display: inline-block;
+    max-width: 100%;
+  }
+  .msg.system .msg-text {
+    background: #fff4e5;
+    color: #6b4500;
+    font-size: 12px;
+  }
+
+  /* Outgoing (me) messages */
+  .msg.me { flex-direction: row-reverse; }
+  .msg.me .msg-meta { justify-content: flex-end; }
+  .msg.me .msg-text {
+    background: #5b5fc7;
+    color: #fff;
+  }
+  .msg.me .msg-body { display: flex; flex-direction: column; align-items: flex-end; }
+
+  /* Typing indicator */
+  .typing {
+    display: inline-flex;
+    gap: 4px;
+    padding: 12px 14px;
+    background: #f5f5f5;
+    border-radius: 4px;
+  }
+  .typing span {
+    width: 6px;
+    height: 6px;
+    background: #888;
+    border-radius: 50%;
+    animation: blink 1.2s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink {
+    0%, 60%, 100% { opacity: 0.3; }
+    30% { opacity: 1; }
+  }
+
+  /* ===== Match Card ===== */
+  .match-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    max-width: 480px;
+    margin-top: 6px;
+  }
+  .match-card-header {
+    background: linear-gradient(135deg, #5b5fc7 0%, #7579e7 100%);
+    color: #fff;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .match-card-body { padding: 16px; }
+  .match-profile {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .match-profile .avatar { width: 52px; height: 52px; font-size: 18px; }
+  .match-profile-info { flex: 1; }
+  .match-profile-name { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+  .match-profile-role { font-size: 12px; color: #616161; }
+
+  .match-narrative {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #242424;
+    padding: 12px 14px;
+    background: #f9f9fb;
+    border-left: 3px solid #5b5fc7;
+    border-radius: 2px;
+    margin-bottom: 12px;
+  }
+
+  .match-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .chip {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: #eef0f9;
+    color: #424867;
+    border: 1px solid #d8dcef;
+  }
+  .chip-strong { background: #5b5fc7; color: #fff; border-color: #5b5fc7; }
+
+  .match-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .btn {
+    flex: 1;
+    padding: 9px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: #5b5fc7;
+    color: #fff;
+    border-color: #5b5fc7;
+  }
+  .btn-primary:hover { background: #4a4eb5; }
+  .btn-ghost {
+    background: #fff;
+    color: #424242;
+    border-color: #d1d1d1;
+  }
+  .btn-ghost:hover { background: #f5f5f5; }
+
+  .safety-footer {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: #f9f9fb;
+    border-radius: 4px;
+    font-size: 11px;
+    color: #616161;
+    line-height: 1.5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .safety-icon { color: #5b5fc7; font-size: 14px; }
+
+  /* ===== Match Reasons (rich card) ===== */
+  .match-reasons {
+    margin-bottom: 14px;
+    border: 1px solid #eef0f9;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .match-reasons-title {
+    background: #f9f9fb;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #424867;
+    border-bottom: 1px solid #eef0f9;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .match-reasons-title .ai-badge {
+    font-size: 10px;
+    background: linear-gradient(135deg, #ff7a59, #ff4081);
+    color: #fff;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .reason-row {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    border-top: 1px solid #f5f5fa;
+    align-items: flex-start;
+  }
+  .reason-row:first-child { border-top: none; }
+  .reason-icon {
+    width: 28px;
+    height: 28px;
+    background: #eef0f9;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+  .reason-content { flex: 1; min-width: 0; }
+  .reason-label {
+    font-size: 11px;
+    color: #616161;
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .reason-text { font-size: 13px; color: #242424; line-height: 1.4; }
+  .reason-score {
+    font-size: 10px;
+    background: #5b5fc7;
+    color: #fff;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .reason-bar {
+    margin-top: 4px;
+    height: 3px;
+    background: #f0f0f5;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .reason-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #5b5fc7, #7579e7);
+    border-radius: 2px;
+  }
+
+  /* ===== Mutual acceptance status ===== */
+  .mutual-status {
+    margin-top: 12px;
+    padding: 14px;
+    background: #f9f9fb;
+    border-radius: 6px;
+    border: 1px solid #eef0f9;
+  }
+  .mutual-status-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #242424;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mutual-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+  }
+  .mutual-row + .mutual-row { border-top: 1px solid #eef0f9; }
+  .mutual-name { flex: 1; font-size: 13px; }
+  .mutual-state {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .state-accepted { background: #dff6e3; color: #1a6b3a; }
+  .state-waiting { background: #fff4e5; color: #b46900; }
+  .pulse {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: #b46900;
+    border-radius: 50%;
+    margin-right: 4px;
+    animation: pulse 1.4s infinite;
+    vertical-align: middle;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.9); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+
+  /* Card placeholder after dismiss */
+  .card-placeholder {
+    max-width: 480px;
+    padding: 24px;
+    text-align: center;
+    background: #f9f9fb;
+    border: 1px dashed #d1d1d1;
+    border-radius: 8px;
+    color: #616161;
+    font-size: 13px;
+  }
+
+  /* ===== Icebreaker chips ===== */
+  .icebreakers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .ice-chip {
+    padding: 8px 14px;
+    background: #fff;
+    border: 1px solid #5b5fc7;
+    color: #5b5fc7;
+    border-radius: 16px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ice-chip:hover { background: #5b5fc7; color: #fff; }
+
+  /* ===== Composer ===== */
+  .composer {
+    padding: 12px 20px 16px;
+    border-top: 1px solid #e0e0e0;
+  }
+  .composer-box {
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    padding: 8px 12px;
+  }
+  .composer-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    font-family: inherit;
+    resize: none;
+    min-height: 22px;
+    padding: 4px 0;
+    background: transparent;
+  }
+  .composer-toolbar {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #242424;
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ===== Animations ===== */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .msg, .match-card, .card-placeholder { animation: fadeIn 0.3s ease-out; }
+
+  /* Hidden state */
+  .hidden { display: none !important; }
+
+  /* ===== Score Widget ===== */
+  .score-widget {
+    position: fixed;
+    top: 44px;
+    right: 16px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    z-index: 200;
+    width: 240px;
+  }
+  .score-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .score-emoji { font-size: 18px; }
+  .score-title { font-size: 12px; color: #616161; flex: 1; }
+  .score-tier {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .tier-bronze { background: linear-gradient(135deg, #cd7f32, #e09a4f); }
+  .tier-silver { background: linear-gradient(135deg, #999, #c0c0c0); }
+  .tier-gold { background: linear-gradient(135deg, #d4af37, #ffd700); color: #5a4500; }
+  .tier-platinum { background: linear-gradient(135deg, #4b6cb7, #182848); }
+  .score-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #5b5fc7;
+    line-height: 1.1;
+  }
+  .score-value-unit { font-size: 12px; color: #888; font-weight: 400; }
+  .score-bar {
+    margin-top: 6px;
+    height: 4px;
+    background: #f0f0f5;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .score-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #5b5fc7, #7579e7);
+    transition: width 0.6s;
+  }
+  .score-next { font-size: 10px; color: #888; margin-top: 4px; }
+
+  .score-popup {
+    position: fixed;
+    top: 90px;
+    right: 24px;
+    background: #5b5fc7;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 16px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(91,95,199,0.3);
+    z-index: 300;
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+    pointer-events: none;
+  }
+  .score-popup.show { opacity: 1; transform: translateY(0); }
+
+  /* ===== Intro message form ===== */
+  .intro-form .form-card-header {
+    background: linear-gradient(135deg, #ff7a59, #ff4081);
+  }
+  .intro-suggestion {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .intro-suggestion .ice-chip { font-size: 11px; padding: 5px 10px; }
+
+  /* ===== Delivery Timeline ===== */
+  .delivery-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 16px;
+    max-width: 480px;
+    margin-top: 6px;
+  }
+  .delivery-msg-preview {
+    background: #f9f9fb;
+    border-left: 3px solid #5b5fc7;
+    padding: 10px 12px;
+    border-radius: 2px;
+    font-size: 13px;
+    color: #424242;
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+  .timeline { padding: 4px 0; }
+  .timeline-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+    position: relative;
+  }
+  .timeline-row + .timeline-row::before {
+    content: '';
+    position: absolute;
+    left: 11px;
+    top: -8px;
+    width: 2px;
+    height: 14px;
+    background: #e0e0e0;
+  }
+  .timeline-row.done + .timeline-row::before { background: #5b5fc7; }
+  .timeline-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #f0f0f5;
+    color: #888;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .timeline-row.done .timeline-dot { background: #1a6b3a; color: #fff; }
+  .timeline-row.active .timeline-dot { background: #5b5fc7; color: #fff; animation: pulse-dot 1.2s infinite; }
+  @keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(91,95,199,0.5); }
+    50% { box-shadow: 0 0 0 8px rgba(91,95,199,0); }
+  }
+  .timeline-content { flex: 1; padding-top: 2px; }
+  .timeline-title { font-size: 13px; color: #242424; }
+  .timeline-row:not(.done):not(.active) .timeline-title { color: #888; }
+  .timeline-time { font-size: 11px; color: #888; margin-top: 2px; }
+
+  /* ===== Reply preview & action ===== */
+  .reply-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 480px;
+    margin-top: 6px;
+  }
+  .reply-card-header {
+    background: linear-gradient(135deg, #1a6b3a, #2d9856);
+    color: #fff;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .reply-card-body { padding: 16px; }
+  .reply-from {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .reply-text {
+    background: #f0f9f3;
+    border-radius: 4px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #242424;
+    margin-bottom: 14px;
+  }
+  .reply-actions {
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+  }
+  .reply-action-btn {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid #d1d1d1;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    font-family: inherit;
+  }
+  .reply-action-btn:hover { background: #f9f9fb; border-color: #5b5fc7; }
+  .reply-action-icon {
+    width: 36px; height: 36px;
+    background: #eef0f9;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .reply-action-meta { flex: 1; }
+  .reply-action-title { font-size: 14px; font-weight: 600; color: #242424; }
+  .reply-action-sub { font-size: 11px; color: #616161; margin-top: 2px; }
+
+  /* ===== Time Slots ===== */
+  .time-slots { display: flex; flex-direction: column; gap: 8px; }
+  .time-slot {
+    border: 1px solid #d1d1d1;
+    border-radius: 6px;
+    padding: 12px 14px;
+    cursor: pointer;
+    background: #fff;
+  }
+  .time-slot:hover { border-color: #5b5fc7; background: #f9f9fb; }
+  .time-slot.selected { border-color: #5b5fc7; background: #eef0f9; }
+  .time-slot-day { font-size: 13px; font-weight: 600; color: #242424; }
+  .time-slot-place { font-size: 12px; color: #616161; margin-top: 4px; }
+
+  /* ===== Photo avatar ===== */
+  .avatar-photo {
+    background: #ddd;
+    background-size: cover;
+    background-position: center;
+    color: transparent;
+  }
+
+  /* ===== Onboarding form card ===== */
+  .form-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    max-width: 540px;
+    margin-top: 6px;
+  }
+  .form-card-header {
+    background: linear-gradient(135deg, #5b5fc7 0%, #7579e7 100%);
+    color: #fff;
+    padding: 14px 18px;
+  }
+  .form-card-header-title { font-size: 15px; font-weight: 600; }
+  .form-card-header-sub { font-size: 12px; opacity: 0.9; margin-top: 4px; }
+  .form-card-body { padding: 18px; }
+
+  .form-group { margin-bottom: 16px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .form-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #424242;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .form-label-icon { font-size: 14px; }
+  .form-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: inherit;
+    background: #fafafa;
+  }
+  .form-input:focus { outline: none; border-color: #5b5fc7; background: #fff; }
+  textarea.form-input { resize: vertical; min-height: 56px; }
+
+  .chip-select { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip-pick {
+    font-size: 12px;
+    padding: 5px 11px;
+    border-radius: 14px;
+    background: #f5f5f5;
+    color: #424242;
+    border: 1px solid #e0e0e0;
+    cursor: pointer;
+    user-select: none;
+  }
+  .chip-pick:hover { background: #ebebeb; }
+  .chip-pick.selected {
+    background: #5b5fc7;
+    color: #fff;
+    border-color: #5b5fc7;
+  }
+
+  /* ===== Loading card (AI matching) ===== */
+  .loading-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 480px;
+    margin-top: 6px;
+    text-align: center;
+  }
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #eef0f9;
+    border-top-color: #5b5fc7;
+    border-radius: 50%;
+    margin: 0 auto 14px;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-title { font-size: 14px; font-weight: 600; color: #242424; margin-bottom: 6px; }
+  .loading-sub { font-size: 12px; color: #616161; line-height: 1.5; }
+  .loading-steps {
+    margin-top: 14px;
+    text-align: left;
+    font-size: 12px;
+    color: #616161;
+    background: #f9f9fb;
+    border-radius: 4px;
+    padding: 10px 12px;
+  }
+  .loading-step { padding: 3px 0; opacity: 0.4; transition: opacity 0.3s; }
+  .loading-step.active { opacity: 1; color: #242424; font-weight: 500; }
+  .loading-step.done { opacity: 0.7; color: #1a6b3a; }
+</style>
+</head>
+<body>
+
+<div class="titlebar">
+  <input type="text" class="titlebar-search" placeholder="🔍  검색 (Ctrl+E)" disabled />
+</div>
+
+<div class="app">
+  <!-- App Bar -->
+  <div class="appbar">
+    <div class="appbar-item"><div class="appbar-icon">📋</div><div>활동</div></div>
+    <div class="appbar-item active"><div class="appbar-icon">💬</div><div>채팅</div></div>
+    <div class="appbar-item"><div class="appbar-icon">👥</div><div>팀</div></div>
+    <div class="appbar-item"><div class="appbar-icon">📅</div><div>일정</div></div>
+    <div class="appbar-item"><div class="appbar-icon">📞</div><div>통화</div></div>
+    <div class="appbar-item"><div class="appbar-icon">📁</div><div>파일</div></div>
+  </div>
+
+  <!-- Chat List -->
+  <div class="chatlist">
+    <div class="chatlist-header">
+      <div class="chatlist-title">채팅</div>
+      <div class="chatlist-actions">
+        <button class="icon-btn" title="필터">⚙️</button>
+        <button class="icon-btn" title="새 채팅">✏️</button>
+      </div>
+    </div>
+    <div class="chatlist-section">고정됨</div>
+    <div class="chatlist-items" id="chatlist">
+      <div class="chat-item active unread" data-chat="bot">
+        <div class="avatar bot">☕</div>
+        <div class="chat-meta">
+          <div class="chat-name">Serendipity Bot</div>
+          <div class="chat-preview">이번 주 커피챗 상대를 추천드려요</div>
+        </div>
+        <div class="chat-time">방금</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Panel -->
+  <div class="main">
+    <!-- Bot Channel View -->
+    <div id="view-bot">
+      <div class="main-header">
+        <div class="avatar bot" style="width:32px;height:32px;font-size:16px;">☕</div>
+        <div class="main-title">
+          <div class="main-title-name">Serendipity Bot</div>
+          <div class="main-title-sub">사내 숨은 동료 매칭 · HR AX 실험실</div>
+        </div>
+        <div class="main-actions">
+          <button class="icon-btn" title="음성 통화">📞</button>
+          <button class="icon-btn" title="영상 통화">📹</button>
+          <button class="icon-btn" title="공유">↗️</button>
+          <button class="icon-btn" title="더보기">⋯</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">채팅</div>
+        <div class="tab">정보</div>
+        <div class="tab">매칭 기록</div>
+        <div class="tab">+</div>
+      </div>
+      <div class="messages" id="bot-messages">
+        <div class="msg-day">오늘 · 화요일</div>
+
+        <div class="msg">
+          <div class="avatar bot">☕</div>
+          <div class="msg-body">
+            <div class="msg-meta">
+              <span class="msg-author">Serendipity Bot</span>
+              <span class="msg-time">10:24</span>
+            </div>
+            <div class="msg-text">
+              안녕하세요 👋 저는 사내 <b>숨은 동료 커피챗</b>을 추천해 드리는 Serendipity Bot이에요.<br/>
+              더 좋은 매칭을 위해 <b>나의 맥락</b>을 먼저 알려주세요. 입력하신 내용은 매칭 알고리즘에만 사용되며 상대에게 그대로 노출되지 않아요.
+            </div>
+          </div>
+        </div>
+
+        <!-- 맥락 입력 폼 -->
+        <div class="msg" id="form-message">
+          <div class="avatar bot">☕</div>
+          <div class="msg-body">
+            <div class="msg-meta">
+              <span class="msg-author">Serendipity Bot</span>
+              <span class="msg-time">10:24</span>
+            </div>
+            <div class="form-card">
+              <div class="form-card-header">
+                <div class="form-card-header-title">📝 나의 맥락 입력</div>
+                <div class="form-card-header-sub">5가지 항목 · 약 1분 소요</div>
+              </div>
+              <div class="form-card-body">
+                <div class="form-group">
+                  <div class="form-label"><span class="form-label-icon">💼</span> 업무 영역</div>
+                  <input type="text" class="form-input" id="f-work" value="HR본부 · 인재개발팀, 신입 온보딩 프로그램 기획" />
+                </div>
+
+                <div class="form-group">
+                  <div class="form-label"><span class="form-label-icon">🚀</span> 요즘 가장 몰입하는 일</div>
+                  <textarea class="form-input" id="f-current" rows="2">신입 200명 대상 온보딩 프로그램 개편. 데이터 기반으로 효과 측정하는 방법을 고민 중.</textarea>
+                </div>
+
+                <div class="form-group">
+                  <div class="form-label"><span class="form-label-icon">🎯</span> 관심 분야 <span style="color:#888;font-weight:400;">(중복 선택)</span></div>
+                  <div class="chip-select" data-group="interests">
+                    <div class="chip-pick selected">조직문화</div>
+                    <div class="chip-pick selected">신입 온보딩</div>
+                    <div class="chip-pick">데이터 분석</div>
+                    <div class="chip-pick">AI/ML</div>
+                    <div class="chip-pick">UX 리서치</div>
+                    <div class="chip-pick">신사업</div>
+                    <div class="chip-pick">ESG</div>
+                    <div class="chip-pick">리더십</div>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="form-label"><span class="form-label-icon">🎨</span> 취미 · 운동</div>
+                  <div class="chip-select" data-group="hobbies">
+                    <div class="chip-pick selected">등산</div>
+                    <div class="chip-pick selected">독서</div>
+                    <div class="chip-pick">러닝</div>
+                    <div class="chip-pick">요리</div>
+                    <div class="chip-pick">사진</div>
+                    <div class="chip-pick">여행</div>
+                    <div class="chip-pick">클라이밍</div>
+                    <div class="chip-pick">필라테스</div>
+                    <div class="chip-pick">와인</div>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="form-label"><span class="form-label-icon">📚</span> 요즘 학습 중인 것</div>
+                  <input type="text" class="form-input" id="f-learning" value="People Analytics, SQL · 사내 사이드 스터디 진행 중" />
+                </div>
+
+                <div class="form-group">
+                  <div class="form-label"><span class="form-label-icon">🤝</span> 만나고 싶은 동료 성향</div>
+                  <div class="chip-select" data-group="prefer">
+                    <div class="chip-pick selected">다른 도메인 전문가</div>
+                    <div class="chip-pick selected">비슷한 고민의 동료</div>
+                    <div class="chip-pick">시니어 멘토</div>
+                    <div class="chip-pick">신입/주니어</div>
+                    <div class="chip-pick">사내 사이드 프로젝트 파트너</div>
+                  </div>
+                </div>
+
+                <button class="btn btn-primary" style="width:100%;margin-top:6px;" onclick="submitContext()">
+                  ✨ AI에게 매칭 요청하기
+                </button>
+
+                <div class="safety-footer" style="margin-top:10px;">
+                  <span class="safety-icon">🔒</span>
+                  <span>입력 정보는 매칭 점수 계산에만 사용 · 상대에게는 매칭 사유만 요약 전달됩니다.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 결과 슬롯 (제출 후 채워짐) -->
+        <div class="msg hidden" id="match-message">
+          <div class="avatar bot">☕</div>
+          <div class="msg-body">
+            <div class="msg-meta">
+              <span class="msg-author">Serendipity Bot</span>
+              <span class="msg-time" id="match-time">10:25</span>
+            </div>
+
+            <div id="match-card-slot"></div>
+            <!-- 아래 정적 마크업은 사용되지 않음 (JS에서 동적 생성) -->
+            <div class="hidden">
+              <div class="match-card">
+                <div class="match-card-header">
+                  ✨ 이번 주 추천 매칭
+                </div>
+                <div class="match-card-body">
+                  <div class="match-profile">
+                    <div class="avatar avatar-photo" style="background-image:url('https://randomuser.me/api/portraits/women/44.jpg');"></div>
+                    <div class="match-profile-info">
+                      <div class="match-profile-name">이지원 PM</div>
+                      <div class="match-profile-role">성장지원그룹 · 4년차</div>
+                    </div>
+                  </div>
+
+                  <div class="match-narrative">
+                    "다른 본부에서 비슷한 고민을 하고 계신 분이에요.<br/>
+                    새로운 시야를 얻으실 수 있을 거예요."
+                  </div>
+
+                  <div class="match-reasons">
+                    <div class="match-reasons-title">
+                      💡 왜 이 분을 추천드렸을까요?
+                      <span class="ai-badge">AI 매칭</span>
+                    </div>
+
+                    <div class="reason-row">
+                      <div class="reason-icon">🌐</div>
+                      <div class="reason-content">
+                        <div class="reason-label">
+                          <span>조직 거리</span>
+                          <span class="reason-score">의도된 비대칭</span>
+                        </div>
+                        <div class="reason-text">HR본부 ↔ 성장지원그룹 · <b>4단계 떨어진 조직</b></div>
+                        <div class="reason-bar"><div class="reason-bar-fill" style="width:75%;"></div></div>
+                      </div>
+                    </div>
+
+                    <div class="reason-row">
+                      <div class="reason-icon">🤝</div>
+                      <div class="reason-content">
+                        <div class="reason-label">
+                          <span>최근 1년 협업 이력</span>
+                        </div>
+                        <div class="reason-text"><b>0회</b> · 평소 마주칠 일 없는 분이에요</div>
+                      </div>
+                    </div>
+
+                    <div class="reason-row">
+                      <div class="reason-icon">🎯</div>
+                      <div class="reason-content">
+                        <div class="reason-label">
+                          <span>공통 관심사</span>
+                          <span class="reason-score">2개 일치</span>
+                        </div>
+                        <div class="reason-text">
+                          <span class="chip" style="margin-right:4px;">조직문화</span>
+                          <span class="chip">신입 온보딩</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="reason-row">
+                      <div class="reason-icon">🧩</div>
+                      <div class="reason-content">
+                        <div class="reason-label">
+                          <span>업무 보완성</span>
+                        </div>
+                        <div class="reason-text">데이터 분석 ↔ 현장 운영 — 서로 다른 관점</div>
+                      </div>
+                    </div>
+
+                    <div class="reason-row">
+                      <div class="reason-icon">⏰</div>
+                      <div class="reason-content">
+                        <div class="reason-label">
+                          <span>활동 시간대</span>
+                        </div>
+                        <div class="reason-text">오후 집중 시간대 겹침 (14:00–17:00)</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="match-actions">
+                    <button class="btn btn-primary" onclick="acceptMatch()">수락하기</button>
+                    <button class="btn btn-ghost" onclick="dismissMatch('later')">다음에</button>
+                    <button class="btn btn-ghost" onclick="dismissMatch('skip')">이번 주 쉬기</button>
+                  </div>
+
+                  <div class="safety-footer">
+                    <span class="safety-icon">🔒</span>
+                    <span>매칭은 격주 1회 · 언제든 거절 가능 · 프로필은 동의 후에만 공개됩니다.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <div class="composer">
+        <div class="composer-box">
+          <textarea class="composer-input" placeholder="Serendipity Bot에게 메시지" rows="1" disabled></textarea>
+          <div class="composer-toolbar">
+            <button class="icon-btn">📎</button>
+            <button class="icon-btn">😊</button>
+            <button class="icon-btn">GIF</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Match Chat View (hidden initially) -->
+    <div id="view-match" class="hidden" style="display:flex;flex-direction:column;height:100%;">
+      <div class="main-header">
+        <div class="avatar avatar-photo" style="width:32px;height:32px;background-image:url('https://randomuser.me/api/portraits/women/44.jpg');"></div>
+        <div class="main-title">
+          <div class="main-title-name">이지원 PM</div>
+          <div class="main-title-sub">🟢 활성 · 성장지원그룹</div>
+        </div>
+        <div class="main-actions">
+          <button class="icon-btn" title="음성 통화">📞</button>
+          <button class="icon-btn" title="영상 통화">📹</button>
+          <button class="icon-btn" title="공유">↗️</button>
+          <button class="icon-btn" title="더보기">⋯</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab active">채팅</div>
+        <div class="tab">파일</div>
+        <div class="tab">+</div>
+      </div>
+      <div class="messages" id="match-messages">
+        <div class="msg-day">오늘</div>
+
+        <div class="msg system">
+          <div style="width:36px;text-align:center;">☕</div>
+          <div class="msg-body">
+            <div class="msg-text">
+              <b>Serendipity Bot</b>이 두 분을 연결해 드렸어요. 격주 매칭이며, 일정은 자유롭게 잡으시면 됩니다.<br/>
+              ※ 대화 내용은 양측 외에는 공개되지 않습니다.
+            </div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <div class="avatar bot">☕</div>
+          <div class="msg-body">
+            <div class="msg-meta">
+              <span class="msg-author">Serendipity Bot</span>
+              <span class="msg-time">10:25</span>
+            </div>
+            <div class="msg-text">
+              어색하면 아래 질문으로 시작해보세요 👇
+              <div class="icebreakers">
+                <div class="ice-chip" onclick="useIcebreaker(this)">요즘 가장 몰입하는 일</div>
+                <div class="ice-chip" onclick="useIcebreaker(this)">이직 전 커리어 이야기</div>
+                <div class="ice-chip" onclick="useIcebreaker(this)">주말 루틴</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="composer">
+        <div class="composer-box">
+          <textarea class="composer-input" id="match-input" placeholder="이지원 PM에게 메시지" rows="1"></textarea>
+          <div class="composer-toolbar">
+            <button class="icon-btn">📎</button>
+            <button class="icon-btn">😊</button>
+            <button class="icon-btn">GIF</button>
+            <button class="icon-btn">✈️</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="score-widget" id="score-widget">
+  <div class="score-head">
+    <div class="score-emoji">⚡</div>
+    <div class="score-title">Serendipity 점수</div>
+    <div class="score-tier tier-bronze" id="score-tier">브론즈</div>
+  </div>
+  <div class="score-value"><span id="score-value">0</span><span class="score-value-unit"> P</span></div>
+  <div class="score-bar"><div class="score-bar-fill" id="score-bar-fill" style="width:0%;"></div></div>
+  <div class="score-next" id="score-next">실버까지 50P · 분기말 사내 카페 쿠폰 지급</div>
+</div>
+
+<div class="score-popup" id="score-popup"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ===== State =====
+  let currentChat = 'bot';
+  const PARTNER_PHOTO = 'https://randomuser.me/api/portraits/women/44.jpg';
+  let userContext = null;
+  let introMessage = '';
+
+  // ===== Score System =====
+  let score = 0;
+  const SCORE_RULES = {
+    context_input: { points: 10, label: '맥락 입력 완료' },
+    match_accept: { points: 15, label: '매칭 수락' },
+    intro_message: { points: 20, label: '첫 인사 메시지 전송' },
+    coffee_scheduled: { points: 30, label: '커피챗 일정 확정' },
+    chat_started: { points: 15, label: '채팅 응답' }
+  };
+  const TIERS = [
+    { name: '브론즈', cls: 'tier-bronze', min: 0, next: 50, reward: '사내 카페 쿠폰' },
+    { name: '실버', cls: 'tier-silver', min: 50, next: 100, reward: '도서 구입비 3만원' },
+    { name: '골드', cls: 'tier-gold', min: 100, next: 200, reward: '문화비 5만원 + 사내 메이커 인터뷰 초대' },
+    { name: '플래티넘', cls: 'tier-platinum', min: 200, next: 999, reward: '경영진 라운드테이블 초대' }
+  ];
+
+  function addPoints(ruleKey) {
+    const rule = SCORE_RULES[ruleKey];
+    if (!rule) return;
+    score += rule.points;
+    updateScoreUI();
+    showScorePopup(`+${rule.points}P · ${rule.label}`);
+  }
+
+  function getCurrentTier() {
+    return [...TIERS].reverse().find(t => score >= t.min) || TIERS[0];
+  }
+
+  function updateScoreUI() {
+    const tier = getCurrentTier();
+    document.getElementById('score-value').textContent = score;
+    const tierEl = document.getElementById('score-tier');
+    tierEl.textContent = tier.name;
+    tierEl.className = 'score-tier ' + tier.cls;
+    const progressInTier = score - tier.min;
+    const tierRange = tier.next - tier.min;
+    const pct = Math.min(100, (progressInTier / tierRange) * 100);
+    document.getElementById('score-bar-fill').style.width = pct + '%';
+    const nextTier = TIERS.find(t => t.min > score);
+    document.getElementById('score-next').textContent = nextTier
+      ? `${nextTier.name}까지 ${nextTier.min - score}P · 분기말 ${tier.reward} 지급`
+      : `최고 등급 달성 · ${tier.reward}`;
+  }
+
+  function showScorePopup(text) {
+    const p = document.getElementById('score-popup');
+    p.textContent = text;
+    p.classList.add('show');
+    setTimeout(() => p.classList.remove('show'), 2200);
+  }
+
+  updateScoreUI();
+
+  // ===== Chip toggling =====
+  document.querySelectorAll('.chip-select').forEach(group => {
+    group.addEventListener('click', (e) => {
+      if (e.target.classList.contains('chip-pick')) {
+        e.target.classList.toggle('selected');
+      }
+    });
+  });
+
+  function getSelectedChips(group) {
+    return Array.from(document.querySelectorAll(`.chip-select[data-group="${group}"] .chip-pick.selected`))
+      .map(c => c.textContent.trim());
+  }
+
+  // ===== Form submit =====
+  function submitContext() {
+    userContext = {
+      work: document.getElementById('f-work').value,
+      current: document.getElementById('f-current').value,
+      interests: getSelectedChips('interests'),
+      hobbies: getSelectedChips('hobbies'),
+      learning: document.getElementById('f-learning').value,
+      prefer: getSelectedChips('prefer')
+    };
+
+    // 폼 메시지 → 제출 요약으로 교체
+    const formMsg = document.getElementById('form-message');
+    formMsg.querySelector('.form-card').outerHTML = `
+      <div class="msg-text" style="background:#eef0f9;color:#424867;">
+        ✓ 맥락 입력 완료<br/>
+        <span style="font-size:12px;color:#616161;">관심 분야 ${userContext.interests.length}개 · 취미 ${userContext.hobbies.length}개 · 만나고 싶은 동료 성향 ${userContext.prefer.length}개</span>
+      </div>
+    `;
+
+    // 사용자가 보낸 것처럼 표시
+    const myMsg = document.createElement('div');
+    myMsg.className = 'msg me';
+    myMsg.innerHTML = `
+      <div class="avatar" style="background:#6264a7;">나</div>
+      <div class="msg-body">
+        <div class="msg-meta"><span class="msg-author">나</span><span class="msg-time">${nowTime()}</span></div>
+        <div class="msg-text">매칭 요청드려요!</div>
+      </div>
+    `;
+    document.getElementById('bot-messages').appendChild(myMsg);
+
+    addPoints('context_input');
+
+    // 로딩 카드 표시
+    showMatchingLoader();
+  }
+
+  // ===== Loading sequence =====
+  function showMatchingLoader() {
+    const container = document.getElementById('bot-messages');
+    const loaderMsg = document.createElement('div');
+    loaderMsg.className = 'msg';
+    loaderMsg.id = 'loader-msg';
+    loaderMsg.innerHTML = `
+      <div class="avatar bot">☕</div>
+      <div class="msg-body">
+        <div class="msg-meta"><span class="msg-author">Serendipity Bot</span><span class="msg-time">${nowTime()}</span></div>
+        <div class="loading-card">
+          <div class="spinner"></div>
+          <div class="loading-title">AI가 사내 동료 1,247명 중에서 추천 후보를 분석하고 있어요</div>
+          <div class="loading-sub">조직 그래프, 관심사 임베딩, 협업 이력을 종합해 매칭 점수를 계산하는 중…</div>
+          <div class="loading-steps">
+            <div class="loading-step" data-step="1">① 조직 거리(Graph distance) 계산 중…</div>
+            <div class="loading-step" data-step="2">② 관심사·학습 영역 임베딩 유사도 계산 중…</div>
+            <div class="loading-step" data-step="3">③ 최근 1년 협업 이력 필터링 중…</div>
+            <div class="loading-step" data-step="4">④ 의도된 비대칭 가중치 적용 중…</div>
+          </div>
+        </div>
+      </div>
+    `;
+    container.appendChild(loaderMsg);
+    container.scrollTop = container.scrollHeight;
+
+    const steps = loaderMsg.querySelectorAll('.loading-step');
+    let i = 0;
+    const tick = () => {
+      if (i > 0) steps[i-1].classList.replace('active', 'done');
+      if (i < steps.length) {
+        steps[i].classList.add('active');
+        i++;
+        setTimeout(tick, 700);
+      } else {
+        setTimeout(() => {
+          loaderMsg.remove();
+          revealMatchCard();
+        }, 600);
+      }
+    };
+    tick();
+  }
+
+  // ===== Build match card from user context =====
+  function revealMatchCard() {
+    const matchMsg = document.getElementById('match-message');
+    matchMsg.classList.remove('hidden');
+    document.getElementById('match-time').textContent = nowTime();
+
+    // 사용자 입력 기반 매칭 사유 구성 (단순 가상 매핑)
+    const myInterests = userContext.interests;
+    const myHobbies = userContext.hobbies;
+    // 상대 가상 프로필
+    const partnerInterests = ['조직문화', 'UX 리서치', '신입 온보딩'];
+    const partnerHobbies = ['등산', '독서', '클라이밍'];
+    const sharedInterests = myInterests.filter(x => partnerInterests.includes(x));
+    const sharedHobbies = myHobbies.filter(x => partnerHobbies.includes(x));
+
+    const slot = document.getElementById('match-card-slot');
+    slot.innerHTML = `
+      <div class="match-card">
+        <div class="match-card-header">
+          ✨ 이번 주 추천 매칭 · 매칭 점수 87점
+        </div>
+        <div class="match-card-body">
+          <div class="match-profile">
+            <div class="avatar avatar-photo" style="width:60px;height:60px;background-image:url('${PARTNER_PHOTO}');"></div>
+            <div class="match-profile-info">
+              <div class="match-profile-name">이지원 PM <span style="font-size:11px;color:#888;font-weight:400;">(가명)</span></div>
+              <div class="match-profile-role">성장지원그룹 · 조직문화팀 · 5년차</div>
+              <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">
+                <span class="chip">UX 리서치</span>
+                <span class="chip">조직문화</span>
+                <span class="chip">등산</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="match-narrative">
+            "다른 본부에서 <b>비슷한 고민(신입 온보딩)</b>을 데이터 관점이 아닌<br/>
+            <b>현장 운영 관점</b>에서 풀고 계신 분이에요. 새로운 시야가 될 거예요."
+          </div>
+
+          <div class="match-reasons">
+            <div class="match-reasons-title">
+              💡 입력하신 맥락 기반 매칭 사유
+              <span class="ai-badge">AI 매칭</span>
+            </div>
+
+            <div class="reason-row">
+              <div class="reason-icon">🌐</div>
+              <div class="reason-content">
+                <div class="reason-label">
+                  <span>조직 거리 (의도된 비대칭)</span>
+                  <span class="reason-score">+28점</span>
+                </div>
+                <div class="reason-text">HR본부 ↔ 성장지원그룹 · <b>4단계 떨어진 조직</b></div>
+                <div class="reason-bar"><div class="reason-bar-fill" style="width:75%;"></div></div>
+              </div>
+            </div>
+
+            <div class="reason-row">
+              <div class="reason-icon">🎯</div>
+              <div class="reason-content">
+                <div class="reason-label">
+                  <span>공통 관심사</span>
+                  <span class="reason-score">+22점</span>
+                </div>
+                <div class="reason-text" style="margin-bottom:4px;">
+                  ${sharedInterests.length > 0
+                    ? sharedInterests.map(x => `<span class="chip chip-strong" style="margin-right:4px;">${x}</span>`).join('')
+                    : '<span style="color:#888;">직접 일치 없음 — 인접 영역 매칭</span>'}
+                </div>
+                <div style="font-size:11px;color:#888;">내가 입력한 ${myInterests.length}개 중 ${sharedInterests.length}개 일치</div>
+              </div>
+            </div>
+
+            <div class="reason-row">
+              <div class="reason-icon">🚀</div>
+              <div class="reason-content">
+                <div class="reason-label">
+                  <span>현재 몰입 영역 유사도</span>
+                  <span class="reason-score">+18점</span>
+                </div>
+                <div class="reason-text">"신입 온보딩" 관련 프로젝트 진행 중 · 접근 방식은 상이</div>
+              </div>
+            </div>
+
+            <div class="reason-row">
+              <div class="reason-icon">🎨</div>
+              <div class="reason-content">
+                <div class="reason-label">
+                  <span>취미 · 라이프스타일</span>
+                  <span class="reason-score">+9점</span>
+                </div>
+                <div class="reason-text">
+                  ${sharedHobbies.length > 0
+                    ? sharedHobbies.map(x => `<span class="chip" style="margin-right:4px;">${x}</span>`).join('') + ' 공통'
+                    : '인접 취향 (아웃도어 계열)'}
+                </div>
+              </div>
+            </div>
+
+            <div class="reason-row">
+              <div class="reason-icon">🤝</div>
+              <div class="reason-content">
+                <div class="reason-label">
+                  <span>최근 1년 협업 이력</span>
+                  <span class="reason-score">+10점</span>
+                </div>
+                <div class="reason-text"><b>0회</b> · 평소 마주칠 일 없는 분이에요</div>
+              </div>
+            </div>
+
+            <div class="reason-row">
+              <div class="reason-icon">⏰</div>
+              <div class="reason-content">
+                <div class="reason-label">
+                  <span>활동 시간대</span>
+                </div>
+                <div class="reason-text">오후 집중 시간대 겹침 (14:00–17:00)</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="match-actions">
+            <button class="btn btn-primary" onclick="acceptMatch()">수락하기</button>
+            <button class="btn btn-ghost" onclick="dismissMatch('later')">다음에</button>
+            <button class="btn btn-ghost" onclick="dismissMatch('skip')">이번 주 쉬기</button>
+          </div>
+
+          <div class="safety-footer">
+            <span class="safety-icon">🔒</span>
+            <span>매칭은 격주 1회 · 언제든 거절 가능 · 프로필은 동의 후에만 공개됩니다.</span>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('bot-messages').scrollTop = 99999;
+  }
+
+  // ===== Toast =====
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  // ===== View switching =====
+  function switchView(view) {
+    document.getElementById('view-bot').classList.toggle('hidden', view !== 'bot');
+    document.getElementById('view-match').classList.toggle('hidden', view !== 'match');
+    document.querySelectorAll('.chat-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.chat === view);
+    });
+    currentChat = view;
+  }
+
+  // ===== Match Accept (상호 수락 플로우) =====
+  function acceptMatch() {
+    const slot = document.getElementById('match-card-slot');
+
+    // STEP 1: 내 수락 완료 + 상대 응답 대기
+    slot.innerHTML = `
+      <div class="match-card">
+        <div class="match-card-header" style="background:linear-gradient(135deg,#5b5fc7,#7579e7);">
+          ⏳ 상호 수락 대기 중
+        </div>
+        <div class="match-card-body">
+          <div class="mutual-status">
+            <div class="mutual-status-title">🤝 두 분이 모두 수락하시면 채팅방이 열립니다</div>
+            <div class="mutual-row">
+              <div class="avatar" style="background:#6264a7;width:32px;height:32px;font-size:12px;">나</div>
+              <div class="mutual-name"><b>나</b> · HR본부</div>
+              <div class="mutual-state state-accepted">✓ 수락함</div>
+            </div>
+            <div class="mutual-row">
+              <div class="avatar avatar-photo" style="width:32px;height:32px;background-image:url('https://randomuser.me/api/portraits/women/44.jpg');"></div>
+              <div class="mutual-name"><b>이지원 PM</b> · 성장지원그룹</div>
+              <div class="mutual-state state-waiting" id="other-state">
+                <span class="pulse"></span>응답 대기 중…
+              </div>
+            </div>
+          </div>
+          <div class="safety-footer" style="margin-top:10px;">
+            <span class="safety-icon">🔔</span>
+            <span>이지원 PM에게도 동일한 추천 카드가 전달되었습니다. 응답까지 최대 24시간 기다려요.</span>
+          </div>
+        </div>
+      </div>
+    `;
+    showToast('수락 완료 — 상대방 응답을 기다리고 있어요');
+
+    // STEP 2: 2.5초 후 상대도 수락
+    setTimeout(() => {
+      const otherState = document.getElementById('other-state');
+      if (otherState) {
+        otherState.className = 'mutual-state state-accepted';
+        otherState.innerHTML = '✓ 수락함';
+      }
+
+      // STEP 3: 매칭 확정 → 인사 메시지 작성 폼
+      setTimeout(() => {
+        addPoints('match_accept');
+        showIntroForm();
+      }, 900);
+    }, 2500);
+  }
+
+  // ===== STEP 4: 인사 메시지 작성 폼 =====
+  function showIntroForm() {
+    const slot = document.getElementById('match-card-slot');
+    slot.innerHTML = `
+      <div class="form-card intro-form">
+        <div class="form-card-header">
+          <div class="form-card-header-title">💌 이지원 PM에게 첫 메시지 보내기</div>
+          <div class="form-card-header-sub">상호 수락 완료 — 이제 가볍게 인사를 건네 보세요</div>
+        </div>
+        <div class="form-card-body">
+          <div class="form-group">
+            <div class="form-label"><span class="form-label-icon">✏️</span> 추천 인사말 (클릭하면 채워져요)</div>
+            <div class="intro-suggestion">
+              <div class="ice-chip" onclick="useIntroTemplate(1)">신입 온보딩 데이터 측정 부분이 궁금해요</div>
+              <div class="ice-chip" onclick="useIntroTemplate(2)">현장 운영 관점이 궁금했어요</div>
+              <div class="ice-chip" onclick="useIntroTemplate(3)">간단히 인사만 드려요</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="form-label"><span class="form-label-icon">💬</span> 메시지</div>
+            <textarea class="form-input" id="intro-text" rows="4" placeholder="안녕하세요! 처음 인사드려요...">안녕하세요 이지원 PM님 :) Serendipity Bot 추천으로 인사드려요. 저는 HR본부에서 신입 온보딩 프로그램을 데이터 관점으로 개편하고 있는데, 현장 운영 관점에서 어떻게 풀어가시는지 궁금해서 메시지 남겨요. 편하실 때 짧게 커피 한 잔 어떠세요? ☕</textarea>
+          </div>
+          <button class="btn btn-primary" style="width:100%;" onclick="sendIntro()">
+            ✉️ 메시지 보내기
+          </button>
+          <div class="safety-footer" style="margin-top:10px;">
+            <span class="safety-icon">💡</span>
+            <span>이지원 PM이 메시지를 읽고 수락하면, 일정을 잡거나 채팅으로 이어갈 수 있어요.</span>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('bot-messages').scrollTop = 99999;
+  }
+
+  function useIntroTemplate(n) {
+    const templates = {
+      1: '안녕하세요 이지원 PM님! 신입 온보딩 데이터 측정 부분에 대해 어떻게 접근하고 계신지 정말 궁금해요. 저는 데이터 관점에서만 보고 있어서 현장 운영 시각이 너무 궁금합니다. 편하실 때 30분만 시간 내주실 수 있을까요? ☕',
+      2: '안녕하세요 :) 처음 인사드려요. 다른 본부에서 비슷한 고민을 하신다는 추천을 받고 메시지 남겨요. 현장 운영 관점에서 어떤 데이터를 보시는지 궁금해서요. 가볍게 차 한 잔 어떠세요?',
+      3: '안녕하세요 이지원 PM님! Serendipity Bot 추천으로 인사드려요. 다른 본부에서 비슷한 고민을 하신다고 해서 반가운 마음에 메시지 남깁니다 :) 편하신 때 잠깐 뵐 수 있으면 좋겠어요!'
+    };
+    document.getElementById('intro-text').value = templates[n] || '';
+  }
+
+  // ===== STEP 5: 메시지 전달 + 진행 타임라인 =====
+  function sendIntro() {
+    introMessage = document.getElementById('intro-text').value.trim();
+    if (!introMessage) { showToast('메시지를 입력해주세요'); return; }
+
+    addPoints('intro_message');
+
+    const slot = document.getElementById('match-card-slot');
+    slot.innerHTML = `
+      <div class="delivery-card">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">✉️ 이지원 PM에게 전달 중</div>
+        <div class="delivery-msg-preview">${escapeHtml(introMessage)}</div>
+        <div class="timeline" id="delivery-timeline">
+          <div class="timeline-row done">
+            <div class="timeline-dot">✓</div>
+            <div class="timeline-content">
+              <div class="timeline-title">메시지 전송됨</div>
+              <div class="timeline-time" id="t-sent">${nowTime()}</div>
+            </div>
+          </div>
+          <div class="timeline-row active" id="t-row-2">
+            <div class="timeline-dot">2</div>
+            <div class="timeline-content">
+              <div class="timeline-title">이지원 PM의 받은편지함에 도착</div>
+              <div class="timeline-time">전달 중…</div>
+            </div>
+          </div>
+          <div class="timeline-row" id="t-row-3">
+            <div class="timeline-dot">3</div>
+            <div class="timeline-content">
+              <div class="timeline-title">메시지 확인</div>
+              <div class="timeline-time">대기 중</div>
+            </div>
+          </div>
+          <div class="timeline-row" id="t-row-4">
+            <div class="timeline-dot">4</div>
+            <div class="timeline-content">
+              <div class="timeline-title">수락 + 답장</div>
+              <div class="timeline-time">대기 중</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('bot-messages').scrollTop = 99999;
+
+    // 단계별 자동 진행
+    setTimeout(() => advanceTimeline(2), 1200);
+    setTimeout(() => advanceTimeline(3), 2800);
+    setTimeout(() => advanceTimeline(4), 4400);
+    setTimeout(() => showReplyCard(), 5500);
+  }
+
+  function advanceTimeline(step) {
+    const row = document.getElementById('t-row-' + step);
+    if (!row) return;
+    // 이전 단계 완료
+    const prev = document.getElementById('t-row-' + (step - 1));
+    if (prev) {
+      prev.classList.remove('active');
+      prev.classList.add('done');
+      prev.querySelector('.timeline-dot').textContent = '✓';
+      prev.querySelector('.timeline-time').textContent = nowTime();
+    } else {
+      // step 2 → step 1 row already done
+    }
+    if (step === 4) {
+      row.classList.add('done');
+      row.querySelector('.timeline-dot').textContent = '✓';
+      row.querySelector('.timeline-time').textContent = nowTime();
+    } else {
+      row.classList.add('active');
+      const labels = { 2: '도착', 3: '확인 중…' };
+      row.querySelector('.timeline-time').textContent = labels[step] || '진행 중';
+    }
+  }
+
+  // ===== STEP 6: 답장 카드 + 다음 액션 =====
+  function showReplyCard() {
+    const partnerReply = '안녕하세요 :) 메시지 잘 받았어요! 신입 온보딩 데이터 측정 부분, 저도 비슷한 고민을 하고 있어서 너무 반갑네요. 현장에서 운영하다 보면 데이터로는 안 보이는 것들이 많거든요. 편하신 시간에 한번 뵙고 싶어요 ☕';
+
+    const slot = document.getElementById('match-card-slot');
+    slot.innerHTML = `
+      <div class="reply-card">
+        <div class="reply-card-header">
+          🎉 이지원 PM이 수락하고 답장을 보냈어요
+        </div>
+        <div class="reply-card-body">
+          <div class="reply-from">
+            <div class="avatar avatar-photo" style="width:40px;height:40px;background-image:url(${PARTNER_PHOTO});"></div>
+            <div>
+              <div style="font-size:14px;font-weight:600;">이지원 PM</div>
+              <div style="font-size:11px;color:#888;">${nowTime()} · 성장지원그룹</div>
+            </div>
+          </div>
+          <div class="reply-text">${partnerReply}</div>
+          <div style="font-size:12px;color:#616161;margin-bottom:8px;font-weight:600;">다음으로 무엇을 하시겠어요?</div>
+          <div class="reply-actions">
+            <button class="reply-action-btn" onclick="showScheduler()">
+              <div class="reply-action-icon">☕</div>
+              <div class="reply-action-meta">
+                <div class="reply-action-title">커피챗 일정 잡기</div>
+                <div class="reply-action-sub">AI가 두 분 캘린더에서 추천한 시간 3개 · +30P</div>
+              </div>
+              <div style="font-size:18px;color:#888;">→</div>
+            </button>
+            <button class="reply-action-btn" onclick="goToChatWithIntro()">
+              <div class="reply-action-icon">💬</div>
+              <div class="reply-action-meta">
+                <div class="reply-action-title">채팅방에서 답하기</div>
+                <div class="reply-action-sub">메시지로 좀 더 이야기 나누기 · +15P</div>
+              </div>
+              <div style="font-size:18px;color:#888;">→</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    showToast('🎉 이지원 PM이 수락했어요!');
+    addNewChatToList();
+    document.getElementById('bot-messages').scrollTop = 99999;
+  }
+
+  function addNewChatToList() {
+    const list = document.getElementById('chatlist');
+    if (list.querySelector('[data-chat="match"]')) return;
+    const botItem = list.querySelector('[data-chat="bot"]');
+    botItem.classList.remove('active', 'unread');
+    botItem.querySelector('.chat-preview').textContent = '🎉 매칭 확정 · 이지원 PM';
+    botItem.onclick = () => switchView('bot');
+
+    const newItem = document.createElement('div');
+    newItem.className = 'chat-item unread';
+    newItem.dataset.chat = 'match';
+    newItem.innerHTML = `
+      <div class="avatar avatar-photo" style="background-image:url(${PARTNER_PHOTO});"></div>
+      <div class="chat-meta">
+        <div class="chat-name">이지원 PM</div>
+        <div class="chat-preview">메시지 잘 받았어요!</div>
+      </div>
+      <div class="chat-time">방금</div>
+    `;
+    newItem.onclick = () => { newItem.classList.remove('unread'); switchView('match'); };
+    list.appendChild(newItem);
+  }
+
+  // ===== STEP 7-A: 일정 스케줄러 =====
+  function showScheduler() {
+    const slot = document.getElementById('match-card-slot');
+    slot.innerHTML = `
+      <div class="reply-card">
+        <div class="reply-card-header" style="background:linear-gradient(135deg,#5b5fc7,#7579e7);">
+          📅 AI가 추천한 커피챗 시간
+        </div>
+        <div class="reply-card-body">
+          <div style="font-size:12px;color:#616161;margin-bottom:10px;">두 분의 캘린더 빈 시간 + 활동 시간대 선호도 기반</div>
+          <div class="time-slots" id="time-slots">
+            <div class="time-slot" data-slot="1" onclick="pickSlot(this)">
+              <div class="time-slot-day">📅 내일 (수) 오후 3:00 — 3:30</div>
+              <div class="time-slot-place">📍 본관 1층 라운지 카페</div>
+            </div>
+            <div class="time-slot" data-slot="2" onclick="pickSlot(this)">
+              <div class="time-slot-day">📅 목요일 오전 10:30 — 11:00</div>
+              <div class="time-slot-place">💻 Teams 화상 미팅</div>
+            </div>
+            <div class="time-slot" data-slot="3" onclick="pickSlot(this)">
+              <div class="time-slot-day">📅 금요일 오후 4:00 — 4:30</div>
+              <div class="time-slot-place">📍 본관 옥상 카페 The Top</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="confirm-slot" style="width:100%;margin-top:14px;opacity:0.5;" disabled onclick="confirmSlot()">
+            시간을 선택해주세요
+          </button>
+        </div>
+      </div>
+    `;
+    document.getElementById('bot-messages').scrollTop = 99999;
+  }
+
+  let pickedSlot = null;
+  function pickSlot(el) {
+    document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+    pickedSlot = el.querySelector('.time-slot-day').textContent + ' · ' + el.querySelector('.time-slot-place').textContent;
+    const btn = document.getElementById('confirm-slot');
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = '✓ 이 시간으로 확정하기';
+  }
+
+  function confirmSlot() {
+    if (!pickedSlot) return;
+    addPoints('coffee_scheduled');
+    const slot = document.getElementById('match-card-slot');
+    slot.innerHTML = `
+      <div class="reply-card">
+        <div class="reply-card-header" style="background:linear-gradient(135deg,#1a6b3a,#2d9856);">
+          ✅ 커피챗 일정이 확정되었습니다
+        </div>
+        <div class="reply-card-body" style="text-align:center;padding:24px;">
+          <div style="font-size:42px;margin-bottom:10px;">☕</div>
+          <div style="font-size:15px;font-weight:600;margin-bottom:8px;">${pickedSlot}</div>
+          <div style="font-size:12px;color:#616161;line-height:1.6;margin-bottom:14px;">
+            두 분의 캘린더에 자동으로 등록되었어요.<br/>
+            10분 전 알림이 갑니다.
+          </div>
+          <button class="btn btn-ghost" style="max-width:200px;margin:0 auto;display:block;" onclick="goToChatWithIntro()">
+            💬 채팅방으로 이동
+          </button>
+        </div>
+      </div>
+    `;
+    showToast('☕ 일정 확정! 캘린더에 등록되었어요');
+  }
+
+  // ===== STEP 7-B: 채팅방으로 이동 (인사 + 답장이 시드로 들어감) =====
+  function goToChatWithIntro() {
+    seedMatchChat();
+    addNewChatToList();
+    const matchItem = document.querySelector('.chat-item[data-chat="match"]');
+    if (matchItem) matchItem.classList.remove('unread');
+    switchView('match');
+    addPoints('chat_started');
+  }
+
+  let chatSeeded = false;
+  function seedMatchChat() {
+    if (chatSeeded) return;
+    chatSeeded = true;
+    const container = document.getElementById('match-messages');
+    // 시스템 메시지/아이스브레이커는 그대로 유지하고 그 위에 인사 + 답장을 끼워넣음
+    // 간단히 messages 컨테이너 맨 위(시스템 메시지 아래)에 추가
+    const myMsg = `
+      <div class="msg me">
+        <div class="avatar" style="background:#6264a7;">나</div>
+        <div class="msg-body">
+          <div class="msg-meta"><span class="msg-author">나</span><span class="msg-time">방금 전</span></div>
+          <div class="msg-text">${escapeHtml(introMessage)}</div>
+        </div>
+      </div>
+    `;
+    const replyMsg = `
+      <div class="msg">
+        <div class="avatar avatar-photo" style="background-image:url(${PARTNER_PHOTO});"></div>
+        <div class="msg-body">
+          <div class="msg-meta"><span class="msg-author">이지원 PM</span><span class="msg-time">방금 전</span></div>
+          <div class="msg-text">안녕하세요 :) 메시지 잘 받았어요! 신입 온보딩 데이터 측정 부분, 저도 비슷한 고민을 하고 있어서 너무 반갑네요 :) 편하신 시간에 한번 뵙고 싶어요 ☕</div>
+        </div>
+      </div>
+    `;
+    // 시스템 메시지 직후에 삽입
+    const systemMsg = container.querySelector('.msg.system');
+    if (systemMsg) {
+      systemMsg.insertAdjacentHTML('afterend', myMsg + replyMsg);
+    } else {
+      container.insertAdjacentHTML('afterbegin', myMsg + replyMsg);
+    }
+  }
+
+  function escapeHtml(s) {
+    return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // ===== Dismiss =====
+  function dismissMatch(reason) {
+    const slot = document.getElementById('match-card-slot');
+    const messages = {
+      later: '다음 매칭은 2주 후에 추천드릴게요.',
+      skip: '이번 주는 쉬어가요. 다음 주기에 다시 추천드릴게요.'
+    };
+    slot.innerHTML = `
+      <div class="card-placeholder">
+        ⏸️ ${messages[reason]}<br/>
+        <span style="font-size:11px;color:#888;">언제든 빈도와 상대 선호를 설정에서 조정할 수 있어요.</span>
+      </div>
+    `;
+    document.getElementById('chatlist').querySelector('[data-chat="bot"]').classList.remove('unread');
+    showToast(messages[reason]);
+  }
+
+  // ===== Match chat — message helpers =====
+  function appendMsg(opts) {
+    const container = document.getElementById('match-messages');
+    const div = document.createElement('div');
+    div.className = 'msg' + (opts.me ? ' me' : '');
+    const avatar = opts.me
+      ? '<div class="avatar" style="background:#6264a7;">나</div>'
+      : `<div class="avatar avatar-photo" style="background-image:url(${PARTNER_PHOTO});"></div>`;
+    const author = opts.me ? '나' : '이지원 PM';
+    div.innerHTML = `
+      ${avatar}
+      <div class="msg-body">
+        <div class="msg-meta">
+          <span class="msg-author">${author}</span>
+          <span class="msg-time">${opts.time || nowTime()}</span>
+        </div>
+        <div class="msg-text">${opts.text}</div>
+      </div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+    return div;
+  }
+
+  function showTyping() {
+    const container = document.getElementById('match-messages');
+    const div = document.createElement('div');
+    div.className = 'msg';
+    div.id = 'typing-indicator';
+    div.innerHTML = `
+      <div class="avatar avatar-photo" style="background-image:url('https://randomuser.me/api/portraits/women/44.jpg');"></div>
+      <div class="msg-body">
+        <div class="typing"><span></span><span></span><span></span></div>
+      </div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+  function hideTyping() {
+    const t = document.getElementById('typing-indicator');
+    if (t) t.remove();
+  }
+
+  function nowTime() {
+    const d = new Date();
+    return `${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function botReply(text, delay = 1400) {
+    showTyping();
+    setTimeout(() => {
+      hideTyping();
+      appendMsg({ me: false, text });
+    }, delay);
+  }
+
+  // ===== Scripted conversations per icebreaker =====
+  const scripts = {
+    '요즘 가장 몰입하는 일': [
+      '안녕하세요 :) 반가워요! 저는 요즘 신규 입사자 온보딩 프로그램 개편을 맡고 있어요. 이전에는 어떤 일 하셨어요?',
+      '오 흥미롭네요. 저희 쪽에서도 비슷한 고민이 있었거든요. 혹시 다음 주에 30분 정도 시간 괜찮으세요? ☕'
+    ],
+    '이직 전 커리어 이야기': [
+      '저는 컨설팅펌에서 4년 정도 있다가 작년에 합류했어요. 처음엔 적응이 쉽지 않았는데 지금은 재미있어요!',
+      '그쪽 본부는 분위기가 어떠세요? 저희랑 협업할 일이 거의 없어서 늘 궁금했거든요 😄'
+    ],
+    '주말 루틴': [
+      '주말엔 보통 등산 가요! 북한산이 집 근처라 자주 가요 ⛰️ 운동 좋아하세요?',
+      '오 좋네요! 다음에 사내 등산 모임 한 번 만들어 봐도 재밌을 것 같아요 ㅎㅎ'
+    ]
+  };
+
+  function useIcebreaker(el) {
+    const topic = el.textContent.trim();
+    const userMsg = `안녕하세요! "${topic}" 라는 주제로 얘기 나눠볼까요? 😊`;
+
+    // 아이스브레이커 영역 비활성화
+    document.querySelectorAll('.ice-chip').forEach(c => {
+      c.style.opacity = '0.4';
+      c.style.pointerEvents = 'none';
+    });
+    el.style.background = '#5b5fc7';
+    el.style.color = '#fff';
+    el.style.opacity = '1';
+
+    // 메시지 전송
+    appendMsg({ me: true, text: userMsg });
+
+    // 상대 답장 시퀀스
+    const replies = scripts[topic] || ['반갑습니다! 좋은 주제네요 :)'];
+    replies.forEach((reply, i) => {
+      setTimeout(() => botReply(reply, 1200), 800 + i * 2400);
+    });
+  }
+
+  // ===== Composer (직접 입력) =====
+  function setupComposer() {
+    const input = document.getElementById('match-input');
+    if (!input) return;
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+        appendMsg({ me: true, text });
+        input.value = '';
+        // 간단한 가짜 응답
+        const fallbacks = [
+          '네 좋아요! 그렇게 해보죠 👍',
+          '오 그러게요. 저도 그 부분이 궁금했어요.',
+          '말씀 들으니 새로운 관점이 생기네요 :)',
+          '맞아요, 비슷한 경험이 있어요. 다음에 더 얘기해요!'
+        ];
+        botReply(fallbacks[Math.floor(Math.random() * fallbacks.length)], 1100);
+      }
+    });
+  }
+  setupComposer();
+
+  // ===== Initial bindings =====
+  document.querySelector('.chat-item[data-chat="bot"]').onclick = () => switchView('bot');
+</script>
+
+</body>
+</html>

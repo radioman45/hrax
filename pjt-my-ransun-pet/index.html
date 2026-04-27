@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 랜선펫 — Teams 데모</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body, html { height: 100%; font-family: "Segoe UI", -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: #f5f5f5; color: #242424; overflow: hidden; }
+
+  /* ===== Teams 전체 레이아웃 ===== */
+  .teams-app { display: grid; grid-template-columns: 68px 320px 1fr; grid-template-rows: 48px 1fr; height: 100vh; }
+
+  /* 상단 타이틀바 */
+  .titlebar { grid-column: 1 / -1; background: #4b53bc; color: #fff; display: flex; align-items: center; padding: 0 16px; gap: 12px; font-size: 13px; }
+  .titlebar .logo { font-weight: 700; }
+  .titlebar .search { flex: 1; max-width: 480px; margin: 0 auto; background: rgba(255,255,255,0.15); border-radius: 4px; padding: 6px 12px; font-size: 13px; color: rgba(255,255,255,0.85); }
+  .titlebar .me { width: 32px; height: 32px; border-radius: 50%; background: #ffb900; color: #242424; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+
+  /* 좌측 앱 레일 */
+  .rail { background: #ebebeb; display: flex; flex-direction: column; align-items: center; padding-top: 8px; gap: 4px; border-right: 1px solid #e0e0e0; }
+  .rail-item { width: 56px; height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; border-radius: 4px; color: #616161; font-size: 10px; }
+  .rail-item:hover { background: #e0e0e0; }
+  .rail-item.active { color: #4b53bc; background: #fff; border-left: 3px solid #4b53bc; }
+  .rail-item .icon { font-size: 20px; }
+
+  /* 사이드바 */
+  .sidebar { background: #f5f5f5; border-right: 1px solid #e0e0e0; display: flex; flex-direction: column; }
+  .sidebar-header { padding: 16px; border-bottom: 1px solid #e0e0e0; display: flex; justify-content: space-between; align-items: center; }
+  .sidebar-header h2 { font-size: 18px; font-weight: 600; }
+  .sidebar-tabs { display: flex; gap: 16px; padding: 0 16px; border-bottom: 1px solid #e0e0e0; }
+  .sidebar-tab { padding: 10px 0; font-size: 13px; cursor: pointer; color: #616161; border-bottom: 2px solid transparent; }
+  .sidebar-tab.active { color: #4b53bc; border-bottom-color: #4b53bc; font-weight: 600; }
+  .chat-list { overflow-y: auto; flex: 1; }
+  .chat-item { padding: 12px 16px; display: flex; gap: 12px; cursor: pointer; border-left: 3px solid transparent; }
+  .chat-item:hover { background: #ebebeb; }
+  .chat-item.active { background: #e8eaf6; border-left-color: #4b53bc; }
+  .chat-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; background: linear-gradient(135deg, #ffe4b5, #ffd4a3); }
+  .chat-info { flex: 1; min-width: 0; }
+  .chat-name { font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; }
+  .chat-name .time { font-weight: 400; font-size: 11px; color: #888; }
+  .chat-preview { font-size: 12px; color: #616161; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+  /* 메인 콘텐츠 */
+  .main { background: #fff; display: flex; flex-direction: column; overflow: hidden; }
+  .main-header { padding: 12px 24px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; gap: 16px; }
+  .main-header .partner-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #ffe4b5, #ffd4a3); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  .main-header .partner-name { font-weight: 600; font-size: 15px; }
+  .main-header .partner-status { font-size: 12px; color: #4caf50; }
+  .main-tabs { display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid #e0e0e0; }
+  .main-tab { padding: 12px 16px; font-size: 14px; cursor: pointer; color: #616161; border-bottom: 2px solid transparent; }
+  .main-tab.active { color: #4b53bc; border-bottom-color: #4b53bc; font-weight: 600; }
+
+  .view { flex: 1; overflow-y: auto; display: none; }
+  .view.active { display: flex; flex-direction: column; }
+
+  /* ===== 채팅 뷰 ===== */
+  .chat-view { padding: 12px 24px 24px; gap: 0; position: relative; }
+  .chat-messages { flex: 1; display: flex; flex-direction: column; gap: 16px; max-width: 760px; margin: 0 auto; width: 100%; padding-top: 8px; }
+  .msg { display: flex; gap: 12px; max-width: 80%; }
+  .msg.me { align-self: flex-end; flex-direction: row-reverse; }
+  .msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .msg.pet .msg-avatar { background: linear-gradient(135deg, #ffe4b5, #ffd4a3); }
+  .msg.me .msg-avatar { background: #ffb900; color: #242424; font-weight: 700; font-size: 13px; }
+  .msg-bubble { background: #f5f5f5; padding: 10px 14px; border-radius: 8px; font-size: 14px; line-height: 1.5; }
+  .msg.me .msg-bubble { background: #e8eaf6; }
+  .msg-meta { font-size: 11px; color: #888; margin-top: 4px; }
+
+  /* Adaptive Card */
+  .adaptive-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; max-width: 420px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .adaptive-card h3 { font-size: 15px; margin-bottom: 4px; }
+  .adaptive-card p { font-size: 13px; color: #616161; margin-bottom: 12px; }
+  .emoji-picker { display: flex; gap: 8px; }
+  .emoji-btn { flex: 1; padding: 10px; border: 1px solid #e0e0e0; background: #fafafa; border-radius: 6px; font-size: 24px; cursor: pointer; transition: all 0.15s; }
+  .emoji-btn:hover { background: #e8eaf6; border-color: #4b53bc; transform: translateY(-2px); }
+  .emoji-btn.selected { background: #4b53bc; border-color: #4b53bc; }
+
+  /* 펫 상태 표시 — 좌측 상단 sticky 미니 카드 */
+  .pet-stage-banner {
+    position: sticky;
+    top: 8px;
+    align-self: flex-start;
+    width: 320px;
+    background: linear-gradient(135deg, #fff8e1, #fff3cd);
+    border: 1px solid #ffe082;
+    border-radius: 16px;
+    padding: 16px 18px;
+    margin: 0 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .pet-stage-banner:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+  .pet-stage-banner.expanded { width: 400px; }
+  .pet-stage-emoji { font-size: 72px; line-height: 1; transition: transform 0.3s; flex-shrink: 0; }
+  .pet-stage-emoji.evolve { animation: evolvePulse 1.2s ease; }
+  @keyframes evolvePulse {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.6) rotate(-10deg); filter: brightness(1.5) drop-shadow(0 0 12px gold); }
+    60% { transform: scale(1.6) rotate(10deg); filter: brightness(1.5) drop-shadow(0 0 12px gold); }
+    100% { transform: scale(1) rotate(0); }
+  }
+  .pet-stage-info { flex: 1; min-width: 0; }
+  .pet-stage-info .top-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .pet-stage-info .name { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .level-badge { background: #4b53bc; color: #fff; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.3px; flex-shrink: 0; }
+  .level-badge.max { background: linear-gradient(135deg, #ffb900, #ff6f00); }
+  .mood-tag { font-size: 11px; flex-shrink: 0; }
+  .pet-stage-info .desc { font-size: 11px; color: #616161; margin-top: 4px; line-height: 1.3; display: none; }
+  .pet-stage-banner.expanded .desc { display: block; }
+  .exp-bar-wrap { margin-top: 4px; }
+  .exp-bar-label { display: flex; justify-content: space-between; font-size: 9px; color: #777; margin-bottom: 2px; }
+  .exp-bar-label .next-label { display: none; }
+  .pet-stage-banner.expanded .exp-bar-label .next-label { display: inline; }
+  .exp-bar { height: 5px; background: #fff; border: 1px solid #e8d49b; border-radius: 3px; overflow: hidden; }
+  .exp-bar-fill { height: 100%; background: linear-gradient(90deg, #ffb900, #ff8f00); transition: width 0.5s; }
+  .pet-stats { display: none; gap: 6px; margin-top: 6px; font-size: 10px; color: #616161; flex-wrap: wrap; }
+  .pet-stage-banner.expanded .pet-stats { display: flex; }
+  .pet-stats span { background: rgba(255,255,255,0.7); padding: 2px 6px; border-radius: 8px; white-space: nowrap; }
+  .pet-toggle-hint { font-size: 9px; color: #999; margin-left: auto; flex-shrink: 0; }
+
+  /* 레벨업 토스트 */
+  .levelup-toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%) translateY(-200%); background: linear-gradient(135deg, #ffb900, #ff6f00); color: #fff; padding: 16px 28px; border-radius: 12px; font-weight: 700; font-size: 16px; box-shadow: 0 10px 30px rgba(255,143,0,0.4); z-index: 999; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); pointer-events: none; text-align: center; }
+  .levelup-toast.show { transform: translateX(-50%) translateY(0); }
+  .levelup-toast .big { font-size: 36px; display: block; margin-bottom: 4px; }
+
+  /* EXP 획득 플로팅 텍스트 */
+  .exp-pop { position: absolute; right: -8px; top: -10px; background: #ff6f00; color: #fff; padding: 2px 8px; border-radius: 10px; font-weight: 700; font-size: 11px; pointer-events: none; opacity: 0; box-shadow: 0 2px 6px rgba(255,143,0,0.3); }
+  .exp-pop.show { animation: expPop 1.2s ease forwards; }
+  @keyframes expPop {
+    0% { opacity: 0; transform: translateY(0); }
+    20% { opacity: 1; transform: translateY(-8px); }
+    100% { opacity: 0; transform: translateY(-32px); }
+  }
+
+  /* 입력창 */
+  .composer { border-top: 1px solid #e0e0e0; padding: 12px 24px; background: #fff; }
+  .composer-inner { max-width: 760px; margin: 0 auto; display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea { flex: 1; border: 1px solid #e0e0e0; border-radius: 8px; padding: 10px 14px; font-size: 14px; resize: none; height: 44px; font-family: inherit; outline: none; }
+  .composer textarea:focus { border-color: #4b53bc; }
+  .composer button { background: #4b53bc; color: #fff; border: none; border-radius: 6px; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; height: 44px; }
+  .composer button:hover { background: #3f47a3; }
+
+  /* ===== 주간 리포트 뷰 ===== */
+  .report-view { padding: 32px; }
+  .report-container { max-width: 760px; margin: 0 auto; }
+  .report-header { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+  .report-header .pet-big { font-size: 72px; }
+  .report-header h1 { font-size: 22px; font-weight: 700; }
+  .report-header .sub { color: #616161; font-size: 13px; margin-top: 4px; }
+  .report-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .report-card h3 { font-size: 14px; color: #616161; margin-bottom: 12px; font-weight: 600; }
+  .pet-letter { background: linear-gradient(135deg, #fff8e1, #fff3cd); border-left: 4px solid #ffb900; padding: 16px 20px; border-radius: 8px; line-height: 1.7; font-size: 14px; }
+  .keywords { display: flex; flex-wrap: wrap; gap: 8px; }
+  .keyword { background: #e8eaf6; color: #4b53bc; padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: 500; }
+  .mood-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; text-align: center; }
+  .mood-day .day-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+  .mood-day .day-emoji { font-size: 28px; }
+
+  /* ===== HR 대시보드 뷰 ===== */
+  .hr-view { padding: 32px; background: #fafafa; }
+  .hr-container { max-width: 1080px; margin: 0 auto; }
+  .hr-header { margin-bottom: 24px; }
+  .hr-header h1 { font-size: 22px; font-weight: 700; }
+  .hr-header .sub { color: #616161; font-size: 13px; margin-top: 4px; }
+  .hr-banner { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #6d4c00; margin-bottom: 24px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 18px; }
+  .kpi-card .label { font-size: 12px; color: #888; }
+  .kpi-card .value { font-size: 28px; font-weight: 700; margin-top: 6px; color: #4b53bc; }
+  .kpi-card .delta { font-size: 12px; margin-top: 4px; color: #4caf50; }
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; }
+  .chart-card h3 { font-size: 15px; margin-bottom: 16px; font-weight: 600; }
+  .chart-wrap { position: relative; height: 240px; }
+  .keyword-list { display: flex; flex-direction: column; gap: 8px; }
+  .keyword-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .keyword-row .rank { font-weight: 700; color: #4b53bc; width: 24px; }
+  .keyword-row .word { flex: 1; }
+  .keyword-row .bar { height: 8px; background: #e8eaf6; border-radius: 4px; overflow: hidden; flex: 2; }
+  .keyword-row .bar-fill { height: 100%; background: #4b53bc; }
+  .keyword-row .count { color: #888; width: 36px; text-align: right; }
+
+  /* HR 필터 바 */
+  .hr-filter { display: flex; gap: 8px; align-items: center; background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .hr-filter label { font-size: 12px; color: #616161; font-weight: 600; }
+  .hr-filter select { padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 13px; background: #fafafa; outline: none; font-family: inherit; cursor: pointer; }
+  .hr-filter select:focus { border-color: #4b53bc; }
+  .hr-filter .scope-tag { background: #e8eaf6; color: #4b53bc; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+  .hr-filter .privacy-warn { color: #c62828; font-size: 12px; margin-left: auto; display: none; }
+  .hr-filter .privacy-warn.show { display: inline; }
+  .masked-card { background: #fafafa !important; color: #999 !important; text-align: center; padding: 40px !important; }
+  .masked-card .mask-icon { font-size: 32px; margin-bottom: 8px; }
+
+  /* 캐릭터 선택 모달 */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .modal-backdrop.hidden { display: none; }
+  .modal { background: #fff; border-radius: 16px; padding: 32px; max-width: 560px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+  .modal h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .modal .modal-sub { color: #616161; font-size: 14px; margin-bottom: 24px; }
+  .species-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .species-card { border: 2px solid #e0e0e0; border-radius: 12px; padding: 16px 12px; text-align: center; cursor: pointer; transition: all 0.15s; background: #fafafa; }
+  .species-card:hover { border-color: #4b53bc; transform: translateY(-2px); }
+  .species-card.selected { border-color: #4b53bc; background: #e8eaf6; }
+  .species-card .sp-emoji { font-size: 48px; line-height: 1; }
+  .species-card .sp-name { font-size: 13px; font-weight: 600; margin-top: 8px; }
+  .species-card .sp-desc { font-size: 11px; color: #888; margin-top: 2px; }
+  .modal .name-row { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; }
+  .modal .name-row label { font-size: 13px; color: #616161; min-width: 80px; }
+  .modal .name-row input { flex: 1; border: 1px solid #e0e0e0; border-radius: 6px; padding: 8px 12px; font-size: 14px; outline: none; font-family: inherit; }
+  .modal .name-row input:focus { border-color: #4b53bc; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-actions button { padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; }
+  .modal-actions .cancel { background: #f0f0f0; color: #242424; }
+  .modal-actions .confirm { background: #4b53bc; color: #fff; }
+  .modal-actions .confirm:disabled { background: #c0c0c0; cursor: not-allowed; }
+
+  /* 헤더의 캐릭터 변경 버튼 */
+  .change-pet-btn { margin-left: auto; padding: 6px 12px; font-size: 12px; background: #f0f0f0; border: 1px solid #e0e0e0; border-radius: 6px; cursor: pointer; color: #4b53bc; font-weight: 600; }
+  .change-pet-btn:hover { background: #e8eaf6; }
+  .settings-btn { padding: 6px 12px; font-size: 12px; background: #f0f0f0; border: 1px solid #e0e0e0; border-radius: 6px; cursor: pointer; color: #4b53bc; font-weight: 600; margin-left: 8px; }
+  .settings-btn:hover { background: #e8eaf6; }
+
+  /* 설정 모달 행 */
+  .setting-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .setting-row > label { min-width: 100px; font-size: 13px; color: #424242; font-weight: 600; }
+  .setting-row input[type="time"], .setting-row input[type="range"] { padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 6px; font-size: 14px; outline: none; font-family: inherit; }
+  .setting-row .freq-val { background: #e8eaf6; color: #4b53bc; padding: 4px 10px; border-radius: 12px; font-weight: 700; font-size: 13px; min-width: 60px; text-align: center; }
+  .setting-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: #4b53bc; }
+  .setting-info { background: #f3f4ff; border-left: 3px solid #4b53bc; padding: 10px 12px; border-radius: 6px; font-size: 12px; color: #424242; line-height: 1.5; margin-bottom: 16px; }
+  .next-visit { font-size: 11px; color: #888; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e0e0e0; }
+  .next-visit b { color: #4b53bc; }
+
+  /* 사이드바 unread 배지 */
+  .chat-item .unread-badge { display: none; background: #c4314b; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; margin-left: 6px; }
+  .chat-item .unread-badge.show { display: inline-block; }
+</style>
+</head>
+<body>
+
+<!-- 캐릭터 선택 모달 -->
+<div class="modal-backdrop" id="species-modal">
+  <div class="modal">
+    <h2>🌱 랜선펫 만들기</h2>
+    <div class="modal-sub">함께할 친구를 골라주세요. 언제든 변경할 수 있어요.</div>
+    <div class="species-grid" id="species-grid"></div>
+    <div class="name-row">
+      <label>이름</label>
+      <input type="text" id="pet-name-input" placeholder="펫 이름을 지어주세요 (예: 콩이)" maxlength="10" />
+    </div>
+    <div class="modal-actions">
+      <button class="cancel" id="species-cancel" style="display:none;">취소</button>
+      <button class="confirm" id="species-confirm" disabled>시작하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 알림 설정 모달 -->
+<div class="modal-backdrop hidden" id="settings-modal">
+  <div class="modal">
+    <h2>⚙️ 펫 알림 설정</h2>
+    <div class="modal-sub">랜선펫이 먼저 말을 걸어오는 시간과 빈도를 설정해요.</div>
+
+    <div class="setting-info">
+      💡 펫이 정해진 시간대에 무작위로 메시지를 보내요. 너무 잦지 않게 설정하면 자연스러운 안부 인사처럼 느껴져요.
+    </div>
+
+    <div class="setting-row">
+      <label>알림 사용</label>
+      <input type="checkbox" id="set-enabled" checked />
+      <span style="font-size:12px; color:#616161;">펫이 먼저 말 걸기</span>
+    </div>
+
+    <div class="setting-row">
+      <label>하루 횟수</label>
+      <input type="range" id="set-freq" min="1" max="6" value="3" style="flex:1;" />
+      <span class="freq-val" id="set-freq-val">3회</span>
+    </div>
+
+    <div class="setting-row">
+      <label>활동 시간</label>
+      <input type="time" id="set-start" value="09:00" />
+      <span style="color:#888;">~</span>
+      <input type="time" id="set-end" value="18:00" />
+    </div>
+
+    <div class="setting-row">
+      <label>🚀 데모 모드</label>
+      <input type="checkbox" id="set-demo" />
+      <span style="font-size:12px; color:#616161;">시연용 — 시간 무시하고 30~60초마다 발화</span>
+    </div>
+
+    <div class="next-visit" id="next-visit-info">다음 방문 예정: <b>—</b></div>
+
+    <div class="modal-actions">
+      <button class="cancel" id="settings-test">🎲 지금 한번 말 걸기</button>
+      <button class="confirm" id="settings-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="teams-app">
+  <!-- 타이틀바 -->
+  <div class="titlebar">
+    <div class="logo">Microsoft Teams</div>
+    <div class="search">🔍 검색하거나 명령을 입력하세요</div>
+    <div class="me">YH</div>
+  </div>
+
+  <!-- 좌측 앱 레일 -->
+  <div class="rail">
+    <div class="rail-item"><div class="icon">📋</div>활동</div>
+    <div class="rail-item active"><div class="icon">💬</div>채팅</div>
+    <div class="rail-item"><div class="icon">👥</div>팀</div>
+    <div class="rail-item"><div class="icon">📅</div>일정</div>
+    <div class="rail-item"><div class="icon">📞</div>통화</div>
+    <div class="rail-item"><div class="icon">📁</div>파일</div>
+  </div>
+
+  <!-- 사이드바 -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>채팅</h2>
+      <span style="cursor:pointer; font-size:18px;">✏️</span>
+    </div>
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active">최근</div>
+      <div class="sidebar-tab">연락처</div>
+    </div>
+    <div class="chat-list">
+      <div class="chat-item active">
+        <div class="chat-avatar" id="sidebar-pet-avatar">🥚</div>
+        <div class="chat-info">
+          <div class="chat-name">콩이 (내 랜선펫)<span class="unread-badge">0</span> <span class="time">방금</span></div>
+          <div class="chat-preview">콩이: 오늘 하루 어땠어? 🌱</div>
+        </div>
+      </div>
+      <div class="chat-item">
+        <div class="chat-avatar" style="background:#cfe2ff;">JK</div>
+        <div class="chat-info">
+          <div class="chat-name">김지혜 <span class="time">10:24</span></div>
+          <div class="chat-preview">네 회의자료 공유드릴게요</div>
+        </div>
+      </div>
+      <div class="chat-item">
+        <div class="chat-avatar" style="background:#d4edda;">PT</div>
+        <div class="chat-info">
+          <div class="chat-name">파일럿 운영팀 <span class="time">어제</span></div>
+          <div class="chat-preview">박OO: 다음주 회고 일정 잡아둘까요?</div>
+        </div>
+      </div>
+      <div class="chat-item">
+        <div class="chat-avatar" style="background:#f8d7da;">HR</div>
+        <div class="chat-info">
+          <div class="chat-name">HR Analytics <span class="time">월요일</span></div>
+          <div class="chat-preview">월간 리포트가 업데이트되었습니다</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 메인 -->
+  <div class="main">
+    <div class="main-header">
+      <div class="partner-avatar" id="header-pet-avatar">🥚</div>
+      <div>
+        <div class="partner-name"><span id="header-pet-name">콩이</span> <span style="font-size:12px; color:#888; font-weight:400;" id="header-pet-species">(내 랜선펫)</span></div>
+        <div class="partner-status">● 함께 있어요</div>
+      </div>
+      <button class="change-pet-btn" id="change-pet-btn">🔄 캐릭터 변경</button>
+      <button class="settings-btn" id="settings-btn">⚙️ 알림 설정</button>
+    </div>
+    <div class="main-tabs">
+      <div class="main-tab active" data-view="chat">채팅</div>
+      <div class="main-tab" data-view="report">📊 주간 리포트</div>
+      <div class="main-tab" data-view="hr">🏢 HR 월간 집계</div>
+    </div>
+
+    <!-- 채팅 뷰 -->
+    <div class="view active" id="view-chat">
+      <div class="chat-view" style="display:flex; flex:1;">
+        <div class="pet-stage-banner" id="pet-stage-banner" title="클릭해서 상세 보기">
+          <div class="pet-stage-emoji" id="pet-stage-emoji">🥚</div>
+          <div class="pet-stage-info">
+            <div class="top-row">
+              <span class="name" id="pet-banner-name">콩이</span>
+              <span class="level-badge" id="pet-level-badge">Lv.1</span>
+              <span class="mood-tag" id="pet-mood-tag">😐</span>
+            </div>
+            <div class="desc" id="pet-stage-desc">대화를 나눌수록 함께 자라요.</div>
+            <div class="exp-bar-wrap">
+              <div class="exp-bar-label">
+                <span id="exp-label-text">EXP 0 / 50</span>
+                <span class="next-label" id="exp-label-next">다음: 베이비</span>
+              </div>
+              <div class="exp-bar"><div class="exp-bar-fill" id="exp-bar-fill" style="width:0%"></div></div>
+            </div>
+            <div class="pet-stats">
+              <span id="stat-msg">💬 0</span>
+              <span id="stat-streak">🔥 1일</span>
+              <span id="stat-checkin">✅ 체크인 0</span>
+            </div>
+          </div>
+          <div class="exp-pop" id="exp-pop">+0</div>
+        </div>
+
+        <!-- 레벨업 토스트 -->
+        <div class="levelup-toast" id="levelup-toast">
+          <span class="big" id="levelup-emoji">🎉</span>
+          <span id="levelup-text">레벨업!</span>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+          <!-- JS로 채워짐 -->
+        </div>
+      </div>
+      <div class="composer">
+        <div class="composer-inner">
+          <textarea id="composer-input" placeholder="콩이에게 메시지 보내기..."></textarea>
+          <button id="composer-send">보내기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 주간 리포트 뷰 -->
+    <div class="view" id="view-report">
+      <div class="report-view">
+        <div class="report-container">
+          <div class="report-header">
+            <div class="pet-big">😄</div>
+            <div>
+              <h1>이번 주 나의 상태 리포트</h1>
+              <div class="sub">2026년 4월 4주차 · 콩이가 정리해 드려요</div>
+            </div>
+          </div>
+
+          <div class="report-card">
+            <h3>📩 콩이가 보내는 편지</h3>
+            <div class="pet-letter">
+              안녕! 이번 주는 화요일에 살짝 다운됐다가, 목요일 발표 끝나고 확 밝아진 한 주였어. ✨<br/><br/>
+              너가 자주 쓴 단어는 <b>"발표"</b>, <b>"마감"</b>, <b>"커피"</b>였고, 수요일에는 늦게까지 대화를 많이 나눴더라.<br/>
+              주말엔 좀 쉬자. 다음 주에도 옆에 있을게. — 콩이가 🐣
+            </div>
+          </div>
+
+          <div class="report-card">
+            <h3>📅 요일별 무드</h3>
+            <div class="mood-grid">
+              <div class="mood-day"><div class="day-label">월</div><div class="day-emoji">🙂</div></div>
+              <div class="mood-day"><div class="day-label">화</div><div class="day-emoji">🥲</div></div>
+              <div class="mood-day"><div class="day-label">수</div><div class="day-emoji">😐</div></div>
+              <div class="mood-day"><div class="day-label">목</div><div class="day-emoji">🤩</div></div>
+              <div class="mood-day"><div class="day-label">금</div><div class="day-emoji">😄</div></div>
+              <div class="mood-day"><div class="day-label">토</div><div class="day-emoji" style="opacity:0.3;">·</div></div>
+              <div class="mood-day"><div class="day-label">일</div><div class="day-emoji" style="opacity:0.3;">·</div></div>
+            </div>
+          </div>
+
+          <div class="report-card">
+            <h3>💬 자주 등장한 키워드</h3>
+            <div class="keywords">
+              <span class="keyword">#발표 ×6</span>
+              <span class="keyword">#마감 ×4</span>
+              <span class="keyword">#커피 ×3</span>
+              <span class="keyword">#회의 ×3</span>
+              <span class="keyword">#피곤 ×2</span>
+              <span class="keyword">#뿌듯 ×2</span>
+            </div>
+          </div>
+
+          <div class="report-card" style="background:#f3f4ff;">
+            <h3>🔒 프라이버시</h3>
+            <div style="font-size:13px; color:#616161; line-height:1.6;">
+              이 리포트는 <b>본인만</b> 열람할 수 있어요. HR에는 어떠한 원문/식별 정보도 전달되지 않으며, 익명 집계 통계만 월 단위로 제공됩니다.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HR 대시보드 뷰 -->
+    <div class="view" id="view-hr">
+      <div class="hr-view">
+        <div class="hr-container">
+          <div class="hr-header">
+            <h1>🏢 HR 월간 집계 리포트</h1>
+            <div class="sub">2026년 4월 · 익명 집계 · 부서간 비교 제외</div>
+          </div>
+          <div class="hr-banner">
+            🔒 <b>프라이버시 가드</b> — 모든 수치는 익명 집계입니다. 개인 식별 정보·대화 원문은 노출되지 않으며, 응답자 수가 <b>10명 미만</b>인 조직 단위는 자동으로 마스킹됩니다 (k≥10).
+          </div>
+
+          <div class="hr-filter">
+            <label>📊 조회 범위</label>
+            <select id="filter-scope">
+              <option value="company">전사</option>
+              <option value="division">실 단위</option>
+              <option value="team">팀 단위</option>
+            </select>
+            <select id="filter-division" style="display:none;"></select>
+            <select id="filter-team" style="display:none;"></select>
+            <span class="scope-tag" id="scope-tag">전사</span>
+            <span class="privacy-warn" id="privacy-warn">⚠ 응답자 10명 미만 — 익명성 보호를 위해 일부 정보가 마스킹됩니다</span>
+          </div>
+
+          <div class="kpi-grid" id="kpi-grid"></div>
+
+          <div class="chart-grid">
+            <div class="chart-card" id="chart-mood-card">
+              <h3>감정 분포</h3>
+              <div class="chart-wrap"><canvas id="chart-mood"></canvas></div>
+            </div>
+            <div class="chart-card" id="chart-trend-card">
+              <h3>주차별 응답률 추이</h3>
+              <div class="chart-wrap"><canvas id="chart-trend"></canvas></div>
+            </div>
+            <div class="chart-card" id="chart-keyword-card" style="grid-column: 1 / -1;">
+              <h3>키워드 TOP 10 (익명 집계)</h3>
+              <div class="keyword-list" id="keyword-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ===== 캐릭터(종류) 정의 =====
+  // 각 캐릭터는 5단계 진화(growthStages)를 가짐: 알→베이비→주니어→어덜트→마스터
+  const SPECIES = {
+    dog: {
+      label: '강아지', defaultName: '멍이', desc: '활발하고 충직해요',
+      growthStages: [
+        { emoji: '🥚', name: '알' },
+        { emoji: '🐾', name: '아기 강아지' },
+        { emoji: '🐶', name: '강아지' },
+        { emoji: '🐕', name: '청년견' },
+        { emoji: '🦮', name: '훈련견 마스터' },
+      ],
+    },
+    cat: {
+      label: '고양이', defaultName: '냥이', desc: '도도하지만 다정해요',
+      growthStages: [
+        { emoji: '🥚', name: '알' },
+        { emoji: '🐾', name: '아기 고양이' },
+        { emoji: '🐱', name: '고양이' },
+        { emoji: '🐈', name: '청년묘' },
+        { emoji: '🦁', name: '왕묘 마스터' },
+      ],
+    },
+    chick: {
+      label: '병아리', defaultName: '콩이', desc: '여리지만 씩씩해요',
+      growthStages: [
+        { emoji: '🥚', name: '알' },
+        { emoji: '🐣', name: '갓 깨어남' },
+        { emoji: '🐤', name: '병아리' },
+        { emoji: '🐥', name: '청년 새' },
+        { emoji: '🦅', name: '독수리 마스터' },
+      ],
+    },
+    rabbit: {
+      label: '토끼', defaultName: '깡총이', desc: '조용히 곁에 있어요',
+      growthStages: [
+        { emoji: '🥚', name: '알' },
+        { emoji: '🐾', name: '아기 토끼' },
+        { emoji: '🐰', name: '토끼' },
+        { emoji: '🐇', name: '청년 토끼' },
+        { emoji: '🥕', name: '당근 마스터' },
+      ],
+    },
+    panda: {
+      label: '판다', defaultName: '판판이', desc: '느긋하고 포근해요',
+      growthStages: [
+        { emoji: '🥚', name: '알' },
+        { emoji: '🐾', name: '아기 판다' },
+        { emoji: '🐼', name: '판다' },
+        { emoji: '🎋', name: '대나무 청년' },
+        { emoji: '🐲', name: '판다 마스터' },
+      ],
+    },
+    fox: {
+      label: '여우', defaultName: '꼬미', desc: '영리하고 호기심 많아요',
+      growthStages: [
+        { emoji: '🥚', name: '알' },
+        { emoji: '🐾', name: '아기 여우' },
+        { emoji: '🦊', name: '여우' },
+        { emoji: '✨', name: '영리한 여우' },
+        { emoji: '🌟', name: '구미호 마스터' },
+      ],
+    },
+  };
+
+  // 무드(컨디션) — 종 공통
+  const MOOD_FACES = ['😴', '🥲', '😐', '🙂', '😄', '🤩'];
+  const MOOD_NAMES = ['방전', '다운', '평온', '좋음', '활기', '최고'];
+  const MOOD_DESC = [
+    '많이 지쳐있어요. 잠깐 쉬어가는 건 어때요?',
+    '오늘 좀 힘들었나봐요. 곁에 있을게요.',
+    '무던한 하루. 이대로도 괜찮아요.',
+    '꽤 괜찮은 하루! 이 페이스 유지해요.',
+    '에너지가 넘쳐 보여요. 좋은 흐름이네요!',
+    '와! {name}가 신나서 펄쩍 뛰어요 🎉',
+  ];
+
+  // 레벨별 누적 EXP 임계값 (Lv.1 시작 = 0, Lv.2 도달 = 50, ...)
+  const LEVEL_THRESHOLDS = [0, 50, 150, 300, 500];
+  const MAX_LEVEL = 5;
+
+  // EXP 획득 규칙
+  const EXP_GAIN = {
+    checkin: 15,        // 이모지 체크인
+    message: 5,         // 자유 텍스트 메시지(5자 이상)
+    shortMessage: 2,    // 짧은 메시지
+    streakBonus: 10,    // 첫 메시지 보낼 때 연속 보너스(연속일에 비례)
+    moodPositive: 5,    // 긍정 무드 추가 보너스
+  };
+
+  let petState = {
+    speciesKey: 'chick',
+    name: '콩이',
+    stageIdx: 2,           // 무드 (0~5)
+    level: 1,              // 진화 레벨 (1~5)
+    exp: 0,                // 현재 누적 EXP
+    msgCount: 0,           // 사용자가 보낸 메시지 수
+    checkinCount: 0,       // 체크인 응답 수
+    streak: 3,             // 연속 일수 (데모: 빠른 체감 위해 3일로 시작)
+    sessionInteracted: false,
+  };
+
+  function currentSpecies() { return SPECIES[petState.speciesKey]; }
+  function currentGrowthStage() {
+    return currentSpecies().growthStages[petState.level - 1];
+  }
+  function currentIcon() { return currentGrowthStage().emoji; }
+
+  // 레벨에 해당하는 임계값 (현 레벨 시작 / 다음 레벨 시작)
+  function levelRange(level) {
+    const start = LEVEL_THRESHOLDS[level - 1];
+    const end = level >= MAX_LEVEL ? LEVEL_THRESHOLDS[MAX_LEVEL - 1] + 200 : LEVEL_THRESHOLDS[level];
+    return { start, end };
+  }
+
+  // EXP 추가 — 레벨업 트리거
+  function addExp(amount, reason) {
+    if (amount <= 0) return;
+    petState.exp += amount;
+    showExpPop(amount);
+
+    // 레벨업 체크 (여러 레벨 점프 가능)
+    while (petState.level < MAX_LEVEL && petState.exp >= LEVEL_THRESHOLDS[petState.level]) {
+      petState.level += 1;
+      triggerLevelUp();
+    }
+    refreshPetUI();
+  }
+
+  function showExpPop(amount) {
+    const pop = document.getElementById('exp-pop');
+    pop.textContent = '+' + amount + ' EXP';
+    pop.classList.remove('show');
+    void pop.offsetWidth; // reflow
+    pop.classList.add('show');
+  }
+
+  function triggerLevelUp() {
+    const stage = currentGrowthStage();
+    const sp = currentSpecies();
+    const toast = document.getElementById('levelup-toast');
+    document.getElementById('levelup-emoji').textContent = stage.emoji;
+    document.getElementById('levelup-text').innerHTML =
+      `<b>Lv.${petState.level} 진화!</b><br/>${petState.name}가 <b>${stage.name}</b>(으)로 자랐어요`;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 3200);
+
+    // 펫 이모지에 진화 애니메이션
+    const stageEl = document.getElementById('pet-stage-emoji');
+    stageEl.classList.remove('evolve');
+    void stageEl.offsetWidth;
+    stageEl.classList.add('evolve');
+
+    // 채팅에 축하 메시지
+    setTimeout(() => {
+      addMessage('pet', `🎉 <b>레벨업!</b> 너랑 대화하면서 ${stage.name}(으)로 자랐어! 고마워 ${stage.emoji}`);
+    }, 800);
+  }
+
+  function refreshPetUI() {
+    const sp = currentSpecies();
+    const stage = currentGrowthStage();
+    const moodIdx = petState.stageIdx;
+    const moodFace = MOOD_FACES[moodIdx];
+    const moodName = MOOD_NAMES[moodIdx];
+    const desc = MOOD_DESC[moodIdx].replace('{name}', petState.name);
+
+    document.getElementById('pet-stage-emoji').textContent = stage.emoji;
+    document.getElementById('pet-banner-name').textContent = petState.name;
+    const moodTag = document.getElementById('pet-mood-tag');
+    moodTag.textContent = moodFace;
+    moodTag.title = moodName;
+    document.getElementById('pet-stage-desc').textContent = desc;
+
+    const levelBadge = document.getElementById('pet-level-badge');
+    levelBadge.textContent = `Lv.${petState.level}`;
+    levelBadge.title = stage.name;
+    levelBadge.classList.toggle('max', petState.level >= MAX_LEVEL);
+
+    // EXP bar
+    const range = levelRange(petState.level);
+    const progress = petState.exp - range.start;
+    const total = range.end - range.start;
+    const pct = Math.min(100, (progress / total) * 100);
+    document.getElementById('exp-bar-fill').style.width = pct + '%';
+    if (petState.level >= MAX_LEVEL) {
+      document.getElementById('exp-label-text').textContent = `EXP ${petState.exp} (MAX)`;
+      document.getElementById('exp-label-next').textContent = '🌟 최종 진화';
+    } else {
+      const next = currentSpecies().growthStages[petState.level].name;
+      document.getElementById('exp-label-text').textContent = `EXP ${petState.exp} / ${LEVEL_THRESHOLDS[petState.level]}`;
+      document.getElementById('exp-label-next').textContent = `다음: ${next}`;
+    }
+
+    // Stats
+    document.getElementById('stat-msg').textContent = `💬 ${petState.msgCount} 메시지`;
+    document.getElementById('stat-streak').textContent = `🔥 ${petState.streak}일 연속`;
+    document.getElementById('stat-checkin').textContent = `✅ 체크인 ${petState.checkinCount}회`;
+
+    // 사이드바 / 헤더 / 메시지 아바타 동기화
+    document.getElementById('sidebar-pet-avatar').textContent = stage.emoji;
+    document.getElementById('header-pet-avatar').textContent = stage.emoji;
+    document.getElementById('header-pet-name').textContent = petState.name;
+    document.getElementById('header-pet-species').textContent = `(Lv.${petState.level} ${sp.label})`;
+
+    const sidebarName = document.querySelector('.chat-item.active .chat-name');
+    if (sidebarName) {
+      const badgeEl = sidebarName.querySelector('.unread-badge');
+      const badgeHtml = badgeEl ? badgeEl.outerHTML : '<span class="unread-badge">0</span>';
+      sidebarName.innerHTML = petState.name + ` <span style="color:#888;font-weight:400;">Lv.${petState.level}</span>${badgeHtml} <span class="time">방금</span>`;
+    }
+
+    document.querySelectorAll('.msg.pet .msg-avatar').forEach(el => {
+      el.textContent = stage.emoji;
+    });
+  }
+
+  function updatePetStage(idx) {
+    petState.stageIdx = Math.max(0, Math.min(5, idx));
+    refreshPetUI();
+  }
+
+  // ===== 캐릭터 선택 모달 =====
+  const speciesModal = document.getElementById('species-modal');
+  const speciesGrid = document.getElementById('species-grid');
+  const petNameInput = document.getElementById('pet-name-input');
+  const speciesConfirm = document.getElementById('species-confirm');
+  const speciesCancel = document.getElementById('species-cancel');
+  let pendingSpecies = null;
+  let isFirstSetup = true;
+
+  function buildSpeciesGrid() {
+    speciesGrid.innerHTML = '';
+    Object.entries(SPECIES).forEach(([key, sp]) => {
+      const card = document.createElement('div');
+      card.className = 'species-card';
+      if (key === pendingSpecies) card.classList.add('selected');
+      card.innerHTML = `
+        <div class="sp-emoji">${sp.growthStages[2].emoji}</div>
+        <div class="sp-name">${sp.label}</div>
+        <div class="sp-desc">${sp.desc}</div>
+      `;
+      card.addEventListener('click', () => {
+        pendingSpecies = key;
+        if (!petNameInput.value.trim()) petNameInput.value = sp.defaultName;
+        buildSpeciesGrid();
+        validateConfirm();
+      });
+      speciesGrid.appendChild(card);
+    });
+  }
+
+  function validateConfirm() {
+    speciesConfirm.disabled = !(pendingSpecies && petNameInput.value.trim());
+  }
+
+  petNameInput.addEventListener('input', validateConfirm);
+
+  function openSpeciesModal(firstTime) {
+    isFirstSetup = !!firstTime;
+    pendingSpecies = petState.speciesKey;
+    petNameInput.value = petState.name;
+    speciesCancel.style.display = firstTime ? 'none' : 'inline-block';
+    buildSpeciesGrid();
+    validateConfirm();
+    speciesModal.classList.remove('hidden');
+  }
+
+  speciesCancel.addEventListener('click', () => {
+    speciesModal.classList.add('hidden');
+  });
+
+  speciesConfirm.addEventListener('click', () => {
+    const newName = petNameInput.value.trim();
+    const speciesChanged = petState.speciesKey !== pendingSpecies;
+    const nameChanged = petState.name !== newName;
+    petState.speciesKey = pendingSpecies;
+    petState.name = newName;
+    speciesModal.classList.add('hidden');
+
+    if (isFirstSetup) {
+      // 첫 진입: Lv.1 알 상태에서 시작
+      petState.level = 1;
+      petState.exp = 0;
+      petState.stageIdx = 2;
+      petState.msgCount = 0;
+      petState.checkinCount = 0;
+      refreshPetUI();
+      initChat();
+      scheduleNextVisit();
+    } else {
+      refreshPetUI();
+      if (speciesChanged || nameChanged) {
+        const sp = currentSpecies();
+        const stage = currentGrowthStage();
+        addMessage('pet', `안녕! 이제부터 <b>${petState.name}</b>(${sp.label})로 함께할게 ${stage.emoji}`);
+      }
+    }
+  });
+
+  document.getElementById('change-pet-btn').addEventListener('click', () => openSpeciesModal(false));
+
+  // 펫 배너 클릭 시 상세 정보 토글
+  document.getElementById('pet-stage-banner').addEventListener('click', (e) => {
+    e.currentTarget.classList.toggle('expanded');
+  });
+
+  // ===== 펫 프로액티브 메시지 시스템 =====
+  const proactiveSettings = {
+    enabled: true,
+    frequency: 3,        // 하루 N회
+    startHour: 9,
+    startMin: 0,
+    endHour: 18,
+    endMin: 0,
+    demoMode: false,
+  };
+
+  let nextVisitTimer = null;
+  let nextVisitAt = null;
+
+  // 시간대별 메시지 풀
+  const PROACTIVE_MESSAGES = {
+    morning: [   // 06-11
+      '좋은 아침! ☀️ 오늘 하루 어떻게 시작했어?',
+      '굿모닝~ 오늘 가장 먼저 한 일이 뭐야?',
+      '아침엔 따뜻한 거 한 잔 어때? 🍵',
+      '오늘 컨디션은 어때? 1~5 중에서 골라줘봐',
+    ],
+    lunch: [     // 11-14
+      '점심 먹었어? 잠깐 한숨 돌리자 🍱',
+      '오전 어땠어? 한 줄로 요약해줘봐 ✏️',
+      '점심시간엔 잠깐 자리에서 일어나는 거 추천 🚶',
+    ],
+    afternoon: [ // 14-17
+      '오후 집중력 어때? 살짝 늘어지는 시간이지 💪',
+      '잠깐! 어깨 한번 쭉 펴고 가자 🧘',
+      '오늘 가장 힘든 일은 끝났어? 아니면 아직?',
+      '커피 한 잔 같이 할래? ☕',
+    ],
+    evening: [   // 17-22
+      '오늘 고생 많았어! 한 줄로 오늘을 표현하면? ✏️',
+      '하루 마무리 잘 하고 있어? 오늘 뿌듯한 순간 있었어?',
+      '퇴근 전에 한 번만 체크인해줘! 그래야 콩이가 자라거든 🌱',
+      '오늘 하루 100점 만점에 몇 점이야?',
+    ],
+    night: [     // 22-06
+      '아직 안 자? 무리하지 말고 쉬어 🌙',
+      '늦었네... 콩이는 자러 갈게. 너도 곧 자!',
+    ],
+    encourage: [
+      '잠깐, 너 잘하고 있어 💪',
+      '오늘도 옆에 있을게 🤗',
+      '문득 생각나서 와봤어. 잘 지내?',
+      '한 줄만 적어줘도 콩이가 행복해 ✨',
+    ],
+  };
+
+  function getCurrentSlot() {
+    const h = new Date().getHours();
+    if (h >= 6 && h < 11) return 'morning';
+    if (h >= 11 && h < 14) return 'lunch';
+    if (h >= 14 && h < 17) return 'afternoon';
+    if (h >= 17 && h < 22) return 'evening';
+    return 'night';
+  }
+
+  function pickProactiveMessage() {
+    const slot = getCurrentSlot();
+    const pool = Math.random() < 0.7
+      ? PROACTIVE_MESSAGES[slot]
+      : PROACTIVE_MESSAGES.encourage;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // 다음 발화 시각 계산
+  function computeNextVisit() {
+    const now = new Date();
+
+    if (proactiveSettings.demoMode) {
+      // 데모 모드: 30~60초 후
+      const delay = 30000 + Math.random() * 30000;
+      return new Date(now.getTime() + delay);
+    }
+
+    const startMin = proactiveSettings.startHour * 60 + proactiveSettings.startMin;
+    const endMin = proactiveSettings.endHour * 60 + proactiveSettings.endMin;
+    if (endMin <= startMin) return null;
+
+    const windowMin = endMin - startMin;
+    const intervalMin = windowMin / proactiveSettings.frequency;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+
+    // 오늘 남은 슬롯 중 가장 가까운 것
+    for (let i = 0; i < proactiveSettings.frequency; i++) {
+      const slotCenter = startMin + intervalMin * (i + 0.5);
+      const jitter = (Math.random() - 0.5) * intervalMin * 0.6;
+      const slotMin = Math.round(slotCenter + jitter);
+      if (slotMin > nowMin) {
+        const target = new Date(now);
+        target.setHours(Math.floor(slotMin / 60), slotMin % 60, 0, 0);
+        return target;
+      }
+    }
+    // 오늘 슬롯 끝 → 내일 첫 슬롯
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const firstSlot = startMin + intervalMin * 0.5;
+    tomorrow.setHours(Math.floor(firstSlot / 60), Math.round(firstSlot % 60), 0, 0);
+    return tomorrow;
+  }
+
+  function formatVisitTime(d) {
+    if (!d) return '—';
+    const now = new Date();
+    const diffSec = Math.round((d - now) / 1000);
+    let when;
+    if (diffSec < 60) when = `${diffSec}초 후`;
+    else if (diffSec < 3600) when = `${Math.round(diffSec / 60)}분 후`;
+    else if (diffSec < 86400) when = `${Math.round(diffSec / 3600)}시간 후`;
+    else when = `${Math.round(diffSec / 86400)}일 후`;
+    const hh = d.getHours().toString().padStart(2, '0');
+    const mm = d.getMinutes().toString().padStart(2, '0');
+    return `${hh}:${mm} (${when})`;
+  }
+
+  function scheduleNextVisit() {
+    if (nextVisitTimer) clearTimeout(nextVisitTimer);
+    nextVisitAt = null;
+
+    if (!proactiveSettings.enabled) {
+      updateNextVisitDisplay();
+      return;
+    }
+
+    nextVisitAt = computeNextVisit();
+    if (!nextVisitAt) {
+      updateNextVisitDisplay();
+      return;
+    }
+
+    const delay = Math.max(1000, nextVisitAt - new Date());
+    nextVisitTimer = setTimeout(() => {
+      triggerProactiveMessage();
+      scheduleNextVisit();
+    }, delay);
+
+    updateNextVisitDisplay();
+  }
+
+  function triggerProactiveMessage() {
+    const msg = pickProactiveMessage();
+    addMessage('pet', msg);
+    showUnreadBadge();
+    flashTitle();
+  }
+
+  function updateNextVisitDisplay() {
+    const el = document.getElementById('next-visit-info');
+    if (!proactiveSettings.enabled) {
+      el.innerHTML = '알림이 꺼져있어요.';
+    } else if (nextVisitAt) {
+      el.innerHTML = `다음 방문 예정: <b>${formatVisitTime(nextVisitAt)}</b>`;
+    } else {
+      el.innerHTML = '활동 시간 설정을 확인해주세요.';
+    }
+  }
+
+  // 사이드바 unread 배지 + 탭 타이틀 깜빡임
+  let unreadCount = 0;
+  function showUnreadBadge() {
+    // 채팅 뷰가 활성이면 unread 표시 안 함
+    const chatActive = document.getElementById('view-chat').classList.contains('active');
+    if (chatActive && !document.hidden) return;
+    unreadCount += 1;
+    const badge = document.querySelector('.chat-item.active .unread-badge');
+    if (badge) {
+      badge.textContent = unreadCount;
+      badge.classList.add('show');
+    }
+  }
+  function clearUnread() {
+    unreadCount = 0;
+    const badge = document.querySelector('.chat-item.active .unread-badge');
+    if (badge) badge.classList.remove('show');
+    document.title = '🐶 AI 랜선펫 — Teams 데모';
+  }
+  let titleFlashInterval = null;
+  function flashTitle() {
+    if (!document.hidden) return;
+    if (titleFlashInterval) return;
+    let flip = false;
+    titleFlashInterval = setInterval(() => {
+      document.title = flip ? '🐶 AI 랜선펫 — Teams 데모' : `(${unreadCount}) 💬 ${petState.name}가 보냄`;
+      flip = !flip;
+    }, 1000);
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      if (titleFlashInterval) { clearInterval(titleFlashInterval); titleFlashInterval = null; }
+      document.title = '🐶 AI 랜선펫 — Teams 데모';
+      // 채팅 뷰가 활성일 때만 unread 클리어
+      if (document.getElementById('view-chat').classList.contains('active')) clearUnread();
+    }
+  });
+
+  // 채팅 뷰 활성화 시 unread 클리어
+  document.querySelectorAll('.main-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.view === 'chat') clearUnread();
+    });
+  });
+
+  // ===== 설정 모달 핸들링 =====
+  const settingsModal = document.getElementById('settings-modal');
+  const setEnabled = document.getElementById('set-enabled');
+  const setFreq = document.getElementById('set-freq');
+  const setFreqVal = document.getElementById('set-freq-val');
+  const setStart = document.getElementById('set-start');
+  const setEnd = document.getElementById('set-end');
+  const setDemo = document.getElementById('set-demo');
+
+  setFreq.addEventListener('input', () => {
+    setFreqVal.textContent = setFreq.value + '회';
+  });
+
+  document.getElementById('settings-btn').addEventListener('click', () => {
+    setEnabled.checked = proactiveSettings.enabled;
+    setFreq.value = proactiveSettings.frequency;
+    setFreqVal.textContent = proactiveSettings.frequency + '회';
+    setStart.value = String(proactiveSettings.startHour).padStart(2,'0') + ':' + String(proactiveSettings.startMin).padStart(2,'0');
+    setEnd.value = String(proactiveSettings.endHour).padStart(2,'0') + ':' + String(proactiveSettings.endMin).padStart(2,'0');
+    setDemo.checked = proactiveSettings.demoMode;
+    updateNextVisitDisplay();
+    settingsModal.classList.remove('hidden');
+  });
+
+  document.getElementById('settings-save').addEventListener('click', () => {
+    proactiveSettings.enabled = setEnabled.checked;
+    proactiveSettings.frequency = parseInt(setFreq.value);
+    const [sh, sm] = setStart.value.split(':').map(Number);
+    const [eh, em] = setEnd.value.split(':').map(Number);
+    proactiveSettings.startHour = sh; proactiveSettings.startMin = sm;
+    proactiveSettings.endHour = eh; proactiveSettings.endMin = em;
+    proactiveSettings.demoMode = setDemo.checked;
+    settingsModal.classList.add('hidden');
+    scheduleNextVisit();
+  });
+
+  document.getElementById('settings-test').addEventListener('click', () => {
+    triggerProactiveMessage();
+  });
+
+  // 모달 백드롭 클릭으로 닫기
+  settingsModal.addEventListener('click', (e) => {
+    if (e.target === settingsModal) settingsModal.classList.add('hidden');
+  });
+
+  // ===== 채팅 메시지 =====
+  const messagesEl = document.getElementById('chat-messages');
+
+  function addMessage(role, content, isCard) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + role;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'msg-avatar';
+    avatar.textContent = role === 'pet' ? currentIcon() : 'YH';
+    wrap.appendChild(avatar);
+
+    const body = document.createElement('div');
+    if (isCard) {
+      body.appendChild(content);
+    } else {
+      const bubble = document.createElement('div');
+      bubble.className = 'msg-bubble';
+      bubble.innerHTML = content;
+      body.appendChild(bubble);
+      const meta = document.createElement('div');
+      meta.className = 'msg-meta';
+      const now = new Date();
+      meta.textContent = (role === 'pet' ? petState.name : '나') + ' · ' + now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+      body.appendChild(meta);
+    }
+    wrap.appendChild(body);
+    messagesEl.appendChild(wrap);
+    messagesEl.parentElement.scrollTop = messagesEl.parentElement.scrollHeight;
+  }
+
+  function buildCheckinCard() {
+    const card = document.createElement('div');
+    card.className = 'adaptive-card';
+    // 체크인 버튼은 일반 무드 이모지(어떤 캐릭터든 공통)
+    const moodEmojis = ['😴', '🥲', '😐', '🙂', '😄'];
+    card.innerHTML = `
+      <h3>🌱 오늘의 체크인</h3>
+      <p>오늘 하루는 어땠어요? 한 글자로 골라줘요.</p>
+      <div class="emoji-picker">
+        ${moodEmojis.map((e, i) => `<button class="emoji-btn" data-mood="${i}">${e}</button>`).join('')}
+      </div>
+    `;
+    card.querySelectorAll('.emoji-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (card.dataset.answered) return;
+        card.dataset.answered = '1';
+        card.querySelectorAll('.emoji-btn').forEach(b => b.disabled = true);
+        btn.classList.add('selected');
+        const mood = parseInt(btn.dataset.mood);
+        const newStage = Math.min(5, Math.round((mood + petState.stageIdx) / 2) + 1);
+        // EXP — 체크인 + 긍정 무드 보너스
+        petState.checkinCount += 1;
+        let gained = EXP_GAIN.checkin;
+        if (mood >= 3) gained += EXP_GAIN.moodPositive;
+        addExp(gained, 'checkin');
+        setTimeout(() => respondToMood(mood, newStage), 600);
+      });
+    });
+    return card;
+  }
+
+  function respondToMood(mood, newStage) {
+    const name = petState.name;
+    const responses = [
+      `많이 지쳤구나... 오늘은 일찍 자는 거 어때? ${name}가 옆에서 지켜볼게 🌙`,
+      '그런 날도 있는 거야. 한 줄만 적어볼래? 뭐가 제일 무거웠어?',
+      '평범한 하루도 충분히 잘 버틴 거야. 따뜻한 차 한 잔 어때? ☕',
+      '괜찮은 하루였구나! 오늘 가장 좋았던 순간 하나만 알려줄래? ✨',
+      `와! 에너지 넘쳐 보여 🎉 그 비결 ${name}한테도 알려줘!`,
+    ];
+    addMessage('pet', responses[mood]);
+    updatePetStage(newStage);
+    if (newStage >= 5) {
+      setTimeout(() => addMessage('pet', `${name}가 너무 신나서 한 단계 진화했어! 🌟`), 800);
+    }
+  }
+
+  // 초기 시나리오
+  function initChat() {
+    messagesEl.innerHTML = '';
+    const sp = currentSpecies();
+    const stage = currentGrowthStage();
+    addMessage('pet', `안녕, 나는 너의 ${sp.label} <b>${petState.name}</b>야 ${stage.emoji}<br/>아직은 작은 <b>${stage.name}</b> 상태인데, 너랑 대화하면서 점점 자라날 거야!`);
+    setTimeout(() => addMessage('pet', '대화하거나 체크인할 때마다 <b>EXP</b>가 쌓이고, 일정 단계에 도달하면 <b>진화</b>해 ✨ 매일 들러주면 더 빠르게 자라!', false), 500);
+    setTimeout(() => addMessage('pet', '먼저 오늘 하루 어땠어? 아래에서 골라줘 ⬇️', false), 1000);
+    setTimeout(() => addMessage('pet', buildCheckinCard(), true), 1400);
+  }
+
+  // ===== 입력창 =====
+  const input = document.getElementById('composer-input');
+  const sendBtn = document.getElementById('composer-send');
+
+  function handleSend() {
+    const text = input.value.trim();
+    if (!text) return;
+    addMessage('me', text);
+    input.value = '';
+
+    // EXP — 메시지 길이별, 첫 메시지에 연속 보너스
+    petState.msgCount += 1;
+    let gained = text.length >= 5 ? EXP_GAIN.message : EXP_GAIN.shortMessage;
+    if (!petState.sessionInteracted) {
+      gained += EXP_GAIN.streakBonus * petState.streak;
+      petState.sessionInteracted = true;
+    }
+    addExp(gained, 'message');
+
+    // 간단한 키워드 기반 펫 응답
+    setTimeout(() => {
+      const name = petState.name;
+      let reply, stageDelta = 0;
+      if (/피곤|힘들|지친|짜증|스트레스/.test(text)) {
+        reply = `많이 힘들었구나... 오늘은 무리하지 말자. ${name}가 옆에 있을게 🤗`;
+        stageDelta = -1;
+      } else if (/좋|행복|뿌듯|즐거|신나|최고/.test(text)) {
+        reply = `와 좋다! 그 에너지 ${name}한테도 옮겨주고 가 ✨`;
+        stageDelta = +1;
+      } else if (/회의|발표|마감/.test(text)) {
+        reply = '바쁜 날이었구나. 끝나고 잠깐이라도 본인한테 칭찬해줘! 🙌';
+        stageDelta = 0;
+      } else {
+        reply = `얘기해줘서 고마워. ${name}가 잘 듣고 있어 👂`;
+        stageDelta = 0;
+      }
+      addMessage('pet', reply);
+      if (stageDelta !== 0) updatePetStage(petState.stageIdx + stageDelta);
+    }, 700);
+  }
+
+  sendBtn.addEventListener('click', handleSend);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  });
+
+  // ===== 탭 전환 =====
+  document.querySelectorAll('.main-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      tab.classList.add('active');
+      const view = tab.dataset.view;
+      document.getElementById('view-' + view).classList.add('active');
+      if (view === 'hr') initCharts();
+    });
+  });
+
+  // ===== HR 데이터 모델 (Mock) =====
+  // 실 → 팀 → 데이터. 부서별로 다른 톤의 통계
+  const ORG_DATA = {
+    company: {
+      label: '전사',
+      participants: 128, deltaP: '+12명', responseRate: 62, deltaR: '+8%p',
+      moodAvg: 3.4, deltaM: -0.2, retention: 81, deltaRet: '+5%p',
+      moodDist: [12, 28, 31, 18, 8, 3],
+      trend: [42, 51, 58, 62],
+      keywords: [['마감',87],['회의',72],['발표',64],['커피',51],['피곤',47],['뿌듯',38],['주말',33],['휴가',29],['집중',24],['감사',21]],
+    },
+    divisions: {
+      hr: {
+        label: 'HR실', participants: 38,
+        teams: {
+          hr_op: { label: 'HR운영팀', participants: 14 },
+          hr_ax: { label: 'HR AX팀',  participants: 16 },
+          hr_lr: { label: 'HR L&D팀', participants: 8 }, // 마스킹 대상
+        }
+      },
+      fin: {
+        label: '재무실', participants: 32,
+        teams: {
+          fin_acc: { label: '회계팀',   participants: 13 },
+          fin_pln: { label: '경영기획팀', participants: 12 },
+          fin_aud: { label: '내부감사팀', participants: 7 }, // 마스킹 대상
+        }
+      },
+      dev: {
+        label: '개발실', participants: 58,
+        teams: {
+          dev_ai:  { label: 'AI 플랫폼팀',  participants: 18 },
+          dev_web: { label: '웹서비스팀',   participants: 16 },
+          dev_inf: { label: '인프라팀',     participants: 15 },
+          dev_sec: { label: '보안팀',       participants: 9 }, // 마스킹 대상
+        }
+      },
+    },
+  };
+
+  // 실/팀별 통계 자동 생성 (전사 기반 + 약간의 변동)
+  function genStats(seed, scaleP) {
+    const rand = (min, max) => min + ((seed * 9301 + 49297) % 233280) / 233280 * (max - min);
+    seed += 1;
+    return {
+      responseRate: Math.round(rand(45, 78)),
+      deltaR: (Math.random() > 0.4 ? '+' : '-') + Math.round(rand(2, 12)) + '%p',
+      moodAvg: +rand(2.8, 4.2).toFixed(1),
+      deltaM: +(rand(-0.4, 0.5)).toFixed(1),
+      retention: Math.round(rand(65, 92)),
+      deltaRet: (Math.random() > 0.3 ? '+' : '-') + Math.round(rand(1, 10)) + '%p',
+      moodDist: [
+        Math.round(scaleP * rand(0.05, 0.20)),
+        Math.round(scaleP * rand(0.15, 0.30)),
+        Math.round(scaleP * rand(0.20, 0.35)),
+        Math.round(scaleP * rand(0.10, 0.25)),
+        Math.round(scaleP * rand(0.03, 0.12)),
+        Math.round(scaleP * rand(0.01, 0.06)),
+      ],
+      trend: [Math.round(rand(35,55)), Math.round(rand(40,60)), Math.round(rand(45,65)), Math.round(rand(50,75))],
+    };
+  }
+
+  const KEYWORD_POOLS = {
+    hr:  [['공감',62],['교육',54],['워크샵',48],['면담',42],['평가',39],['소통',34],['커피',31],['뿌듯',26],['휴가',22],['감사',19]],
+    fin: [['결산',73],['마감',68],['보고',55],['감사',47],['예산',42],['엑셀',38],['야근',33],['커피',28],['주말',24],['뿌듯',18]],
+    dev: [['배포',81],['장애',64],['코드리뷰',58],['스프린트',52],['집중',47],['커피',44],['릴리즈',38],['디버깅',33],['뿌듯',27],['휴가',21]],
+    default: [['마감',87],['회의',72],['발표',64],['커피',51],['피곤',47],['뿌듯',38],['주말',33],['휴가',29],['집중',24],['감사',21]],
+  };
+
+  let seedCounter = 1;
+  Object.entries(ORG_DATA.divisions).forEach(([divKey, div]) => {
+    const divStats = genStats(seedCounter++, div.participants);
+    Object.assign(div, divStats);
+    div.keywords = KEYWORD_POOLS[divKey] || KEYWORD_POOLS.default;
+    div.deltaP = '+' + Math.floor(Math.random() * 8 + 2) + '명';
+    Object.entries(div.teams).forEach(([tKey, team]) => {
+      const teamStats = genStats(seedCounter++, team.participants);
+      Object.assign(team, teamStats);
+      team.keywords = (KEYWORD_POOLS[divKey] || KEYWORD_POOLS.default).slice(0, 8).map(([w, c]) => [w, Math.max(3, Math.round(c * team.participants / 50))]);
+      team.deltaP = (Math.random() > 0.5 ? '+' : '-') + Math.floor(Math.random() * 4 + 1) + '명';
+    });
+  });
+
+  // ===== HR 차트 렌더링 =====
+  let moodChart = null, trendChart = null;
+  let chartsInitialized = false;
+  const K_THRESHOLD = 10; // 익명성 보호 임계값
+
+  function getActiveDataset() {
+    const scope = document.getElementById('filter-scope').value;
+    if (scope === 'company') {
+      return { data: ORG_DATA.company, label: '전사', masked: false };
+    }
+    if (scope === 'division') {
+      const dKey = document.getElementById('filter-division').value;
+      const d = ORG_DATA.divisions[dKey];
+      return { data: d, label: d.label, masked: d.participants < K_THRESHOLD };
+    }
+    if (scope === 'team') {
+      const dKey = document.getElementById('filter-division').value;
+      const tKey = document.getElementById('filter-team').value;
+      const team = ORG_DATA.divisions[dKey].teams[tKey];
+      return { data: team, label: ORG_DATA.divisions[dKey].label + ' · ' + team.label, masked: team.participants < K_THRESHOLD };
+    }
+  }
+
+  function renderHR() {
+    const { data, label, masked } = getActiveDataset();
+    document.getElementById('scope-tag').textContent = label;
+    document.getElementById('privacy-warn').classList.toggle('show', masked);
+
+    const grid = document.getElementById('kpi-grid');
+    if (masked) {
+      grid.innerHTML = `
+        <div class="kpi-card masked-card" style="grid-column: 1 / -1;">
+          <div class="mask-icon">🔒</div>
+          <div><b>응답자 ${data.participants}명</b> — 익명성 보호 임계값(${K_THRESHOLD}명) 미만</div>
+          <div style="font-size:12px; margin-top:4px;">개인 식별 위험으로 이 단위의 통계는 표시되지 않습니다.</div>
+        </div>
+      `;
+      // 차트 영역도 마스킹
+      ['chart-mood-card', 'chart-trend-card', 'chart-keyword-card'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.opacity = '0.3';
+      });
+      return;
+    }
+
+    ['chart-mood-card', 'chart-trend-card', 'chart-keyword-card'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.opacity = '1';
+    });
+
+    const deltaColor = (v) => (typeof v === 'number' ? v >= 0 : !String(v).startsWith('-')) ? '#4caf50' : '#f57c00';
+    grid.innerHTML = `
+      <div class="kpi-card"><div class="label">참여 인원</div><div class="value">${data.participants}명</div><div class="delta">${data.deltaP || ''}</div></div>
+      <div class="kpi-card"><div class="label">주간 응답률</div><div class="value">${data.responseRate}%</div><div class="delta" style="color:${deltaColor(data.deltaR)};">${data.deltaR}</div></div>
+      <div class="kpi-card"><div class="label">평균 무드 스코어</div><div class="value">${data.moodAvg} / 5</div><div class="delta" style="color:${deltaColor(data.deltaM)};">${data.deltaM >= 0 ? '▲' : '▼'} ${Math.abs(data.deltaM)}</div></div>
+      <div class="kpi-card"><div class="label">재사용 의향</div><div class="value">${data.retention}%</div><div class="delta" style="color:${deltaColor(data.deltaRet)};">${data.deltaRet}</div></div>
+    `;
+
+    // 차트 갱신
+    if (moodChart) {
+      moodChart.data.datasets[0].data = data.moodDist;
+      moodChart.update();
+    }
+    if (trendChart) {
+      trendChart.data.datasets[0].data = data.trend;
+      trendChart.update();
+    }
+
+    // 키워드 갱신
+    const keywords = data.keywords || ORG_DATA.company.keywords;
+    const max = keywords[0][1];
+    const list = document.getElementById('keyword-list');
+    list.innerHTML = '';
+    keywords.forEach(([word, count], i) => {
+      const row = document.createElement('div');
+      row.className = 'keyword-row';
+      row.innerHTML = `
+        <div class="rank">${i+1}</div>
+        <div class="word">#${word}</div>
+        <div class="bar"><div class="bar-fill" style="width:${(count/max*100).toFixed(0)}%"></div></div>
+        <div class="count">${count}</div>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  function setupHRFilters() {
+    const scopeSel = document.getElementById('filter-scope');
+    const divSel = document.getElementById('filter-division');
+    const teamSel = document.getElementById('filter-team');
+
+    function fillDivisions() {
+      divSel.innerHTML = '';
+      Object.entries(ORG_DATA.divisions).forEach(([key, d]) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = d.label + ` (${d.participants}명)`;
+        divSel.appendChild(opt);
+      });
+    }
+    function fillTeams() {
+      const dKey = divSel.value;
+      teamSel.innerHTML = '';
+      Object.entries(ORG_DATA.divisions[dKey].teams).forEach(([key, t]) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        const masked = t.participants < K_THRESHOLD;
+        opt.textContent = t.label + ` (${t.participants}명${masked ? ' 🔒' : ''})`;
+        teamSel.appendChild(opt);
+      });
+    }
+
+    fillDivisions();
+    fillTeams();
+
+    scopeSel.addEventListener('change', () => {
+      const scope = scopeSel.value;
+      divSel.style.display = (scope === 'division' || scope === 'team') ? 'inline-block' : 'none';
+      teamSel.style.display = scope === 'team' ? 'inline-block' : 'none';
+      renderHR();
+    });
+    divSel.addEventListener('change', () => {
+      fillTeams();
+      renderHR();
+    });
+    teamSel.addEventListener('change', renderHR);
+  }
+
+  function initCharts() {
+    if (chartsInitialized) return;
+    chartsInitialized = true;
+
+    moodChart = new Chart(document.getElementById('chart-mood'), {
+      type: 'doughnut',
+      data: {
+        labels: ['최고 🤩', '활기 😄', '좋음 🙂', '평온 😐', '다운 🥲', '방전 😴'],
+        datasets: [{
+          data: ORG_DATA.company.moodDist,
+          backgroundColor: ['#ffb900', '#7cb342', '#4caf50', '#90a4ae', '#ff9800', '#e57373'],
+          borderWidth: 0,
+        }]
+      },
+      options: { plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: { size: 12 } } } } }
+    });
+
+    trendChart = new Chart(document.getElementById('chart-trend'), {
+      type: 'line',
+      data: {
+        labels: ['1주차', '2주차', '3주차', '4주차'],
+        datasets: [{
+          label: '응답률 (%)',
+          data: ORG_DATA.company.trend,
+          borderColor: '#4b53bc',
+          backgroundColor: 'rgba(75, 83, 188, 0.1)',
+          fill: true,
+          tension: 0.3,
+        }]
+      },
+      options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
+    });
+
+    setupHRFilters();
+    renderHR();
+  }
+
+  // 초기화 — 첫 진입 시 캐릭터 선택 모달 표시 (확인 후 initChat 자동 호출)
+  openSpeciesModal(true);
+</script>
+
+</body>
+</html>
