@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>리더십 Survey 피드백 리포트</title>
+<style>
+  :root { --bd:#e5e7eb; --mut:#6b7280; --pri:#2563eb; --bg:#f8fafc; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Pretendard', -apple-system, 'Malgun Gothic', sans-serif;
+         margin: 0; background: var(--bg); color: #111827; }
+  header { background: #fff; border-bottom: 1px solid var(--bd); padding: 16px 24px;
+           position: sticky; top: 0; z-index: 10; }
+  h1 { font-size: 18px; margin: 0; }
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .toolbar input[type=file] { font-size: 13px; }
+  button, select { padding: 6px 12px; border: 1px solid var(--bd); background: #fff;
+                   border-radius: 6px; cursor: pointer; font-size: 13px; }
+  button.primary { background: var(--pri); color: #fff; border-color: var(--pri); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  main { max-width: 960px; margin: 24px auto; padding: 0 24px; }
+  .empty { text-align: center; padding: 80px 20px; color: var(--mut); }
+  .report { background: #fff; border: 1px solid var(--bd); border-radius: 8px;
+            padding: 32px; margin-bottom: 24px; page-break-after: always; }
+  .report:last-child { page-break-after: auto; }
+  .report h2 { font-size: 22px; margin: 0 0 4px; }
+  .report .sub { color: var(--mut); font-size: 13px; margin-bottom: 20px; }
+  .kpi { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 24px; }
+  .kpi .card { border: 1px solid var(--bd); border-radius: 6px; padding: 12px; }
+  .kpi .label { font-size: 11px; color: var(--mut); }
+  .kpi .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0 20px; }
+  th, td { border: 1px solid var(--bd); padding: 8px 10px; text-align: left; }
+  th { background: #f3f4f6; font-weight: 600; }
+  td.score { text-align: right; font-variant-numeric: tabular-nums; }
+  .bar { display: inline-block; height: 8px; background: var(--pri); border-radius: 2px;
+         vertical-align: middle; margin-left: 6px; }
+  h3 { font-size: 14px; margin: 18px 0 8px; border-left: 3px solid var(--pri);
+       padding-left: 8px; }
+  .quotes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .quotes .col { border: 1px solid var(--bd); border-radius: 6px; padding: 12px;
+                 background: #fafafa; }
+  .quotes ul { margin: 0; padding-left: 18px; }
+  .quotes li { margin-bottom: 6px; font-size: 13px; line-height: 1.5; }
+  .badge { display: inline-block; background: #eff6ff; color: var(--pri);
+           padding: 2px 8px; border-radius: 12px; font-size: 11px; margin-left: 6px; }
+  @media print {
+    header, .toolbar, .no-print { display: none !important; }
+    body { background: #fff; }
+    main { margin: 0; padding: 0; max-width: none; }
+    .report { border: none; box-shadow: none; padding: 0 0 24px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>리더십 Survey 피드백 리포트 데모</h1>
+  <div class="toolbar">
+    <select id="filter"><option value="">리포트 선택...</option></select>
+    <button id="print" class="primary" disabled>PDF 인쇄/저장</button>
+    <span id="status" style="color:var(--mut); font-size:12px;"></span>
+  </div>
+</header>
+<main id="main">
+  <div class="empty" id="empty">상단 드롭다운에서 실 또는 팀장을 선택하세요.</div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let DATA = null;
+
+$('file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  $('status').textContent = '파싱 중...';
+  const buf = await f.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const resp = XLSX.utils.sheet_to_json(wb.Sheets['응답원본'] || wb.Sheets[wb.SheetNames[0]]);
+  const qs = XLSX.utils.sheet_to_json(wb.Sheets['문항목록'] || wb.Sheets[wb.SheetNames[1]]);
+  DATA = build(resp, qs);
+  render(true);
+  $('status').textContent = `응답 ${resp.length}건 · 팀장 ${DATA.leaders.length}명 · 실 ${DATA.divisions.length}개`;
+  $('filter').disabled = false;
+});
+
+$('filter').addEventListener('change', render);
+$('print').addEventListener('click', () => window.print());
+
+// 팀명 → 실 추출 (예: "운영1팀" → "운영실", "안전환경팀" → "안전환경실")
+function teamToDivision(team) {
+  if (!team) return '미지정';
+  const m = team.replace(/\d+팀$/, '').replace(/팀$/, '');
+  return m + '실';
+}
+
+function build(resp, qs) {
+  const scoreQs = qs.filter(q => q['유형'] === '5점 척도').map(q => q['문항번호']);
+  const textQs = qs.filter(q => q['유형'] === '서술형').map(q => q['문항번호']);
+  const qMap = {}; qs.forEach(q => qMap[q['문항번호']] = q['문항 내용']);
+
+  const leaders = {};
+  resp.forEach(r => {
+    const id = r['팀장ID'];
+    if (!leaders[id]) leaders[id] = {
+      id, name: r['팀장명'], team: r['팀명'],
+      division: teamToDivision(r['팀명']), rows: []
+    };
+    leaders[id].rows.push(r);
+  });
+
+  const computeStats = (rows) => {
+    const stats = {};
+    scoreQs.forEach(q => {
+      const vals = rows.map(r => Number(r[q])).filter(v => !isNaN(v));
+      const avg = vals.reduce((a,b)=>a+b,0) / (vals.length || 1);
+      const dist = [0,0,0,0,0];
+      vals.forEach(v => { if (v>=1 && v<=5) dist[v-1]++; });
+      stats[q] = { avg, n: vals.length, dist };
+    });
+    const overall = scoreQs.map(q => stats[q].avg).reduce((a,b)=>a+b,0) / scoreQs.length;
+    const strengths = rows.map(r => r[textQs[0]]).filter(Boolean);
+    const improves = rows.map(r => r[textQs[1]]).filter(Boolean);
+    return { stats, overall, strengths, improves, n: rows.length };
+  };
+
+  Object.values(leaders).forEach(l => Object.assign(l, computeStats(l.rows)));
+
+  // 실별 집계
+  const divs = {};
+  Object.values(leaders).forEach(l => {
+    if (!divs[l.division]) divs[l.division] = { name: l.division, rows: [], leaders: [] };
+    divs[l.division].rows.push(...l.rows);
+    divs[l.division].leaders.push(l);
+  });
+  Object.values(divs).forEach(d => Object.assign(d, computeStats(d.rows)));
+
+  return {
+    qMap, scoreQs, textQs,
+    leaders: Object.values(leaders).sort((a,b)=>b.overall-a.overall),
+    divisions: Object.values(divs).sort((a,b)=>b.overall-a.overall),
+  };
+}
+
+function render(initial) {
+  const main = $('main');
+  const sel = $('filter');
+  if (initial) {
+    sel.innerHTML = '<option value="">리포트 선택...</option>'
+      + '<optgroup label="실별">'
+      + DATA.divisions.map(d => `<option value="D:${d.name}">${d.name}</option>`).join('')
+      + '</optgroup><optgroup label="팀장별">'
+      + DATA.leaders.map(l => `<option value="L:${l.id}">${l.name} (${l.team})</option>`).join('')
+      + '</optgroup>';
+  }
+  const cur = sel.value;
+  $('print').disabled = !cur;
+
+  if (!cur) {
+    main.innerHTML = '<div class="empty">상단 드롭다운에서 실 또는 팀장을 선택하세요.</div>';
+    return;
+  }
+  let html = '';
+  if (cur.startsWith('D:')) {
+    const d = DATA.divisions.find(x => 'D:'+x.name === cur);
+    if (d) html = renderDivision(d);
+  } else if (cur.startsWith('L:')) {
+    const l = DATA.leaders.find(x => 'L:'+x.id === cur);
+    if (l) html = renderLeader(l);
+  }
+  main.innerHTML = html;
+}
+
+function renderScoreTable(stats) {
+  const max = Math.max(...DATA.scoreQs.map(q => stats[q].avg));
+  return `<table>
+    <thead><tr><th style="width:60px">문항</th><th>내용</th><th style="width:80px">평균</th><th style="width:60px">N</th><th style="width:240px">분포 (1→5)</th></tr></thead>
+    <tbody>${DATA.scoreQs.map(q => {
+      const s = stats[q];
+      const w = (s.avg / 5 * 200).toFixed(0);
+      const distStr = s.dist.map((c,i)=>`${i+1}:${c}`).join(' / ');
+      return `<tr><td><strong>${q}</strong></td><td>${DATA.qMap[q]}</td>
+        <td class="score">${s.avg.toFixed(2)}<span class="bar" style="width:${w*0.4}px"></span></td>
+        <td class="score">${s.n}</td><td style="font-size:12px;color:var(--mut)">${distStr}</td></tr>`;
+    }).join('')}</tbody></table>`;
+}
+
+function renderQuotes(strengths, improves) {
+  const li = arr => arr.length ? arr.map(s=>`<li>${esc(s)}</li>`).join('') : '<li style="color:var(--mut)">응답 없음</li>';
+  return `<div class="quotes">
+    <div class="col"><strong>강점 (Q11)</strong><ul>${li(strengths)}</ul></div>
+    <div class="col"><strong>개선점 (Q12)</strong><ul>${li(improves)}</ul></div>
+  </div>`;
+}
+
+function renderLeader(l) {
+  const top = [...DATA.scoreQs].sort((a,b)=>l.stats[b].avg-l.stats[a].avg).slice(0,3);
+  const bot = [...DATA.scoreQs].sort((a,b)=>l.stats[a].avg-l.stats[b].avg).slice(0,3);
+  return `<section class="report">
+    <h2>${esc(l.name)} <span class="badge">팀장</span></h2>
+    <div class="sub">${esc(l.division)} · ${esc(l.team)} · 응답자 ${l.n}명</div>
+    <div class="kpi">
+      <div class="card"><div class="label">종합 평균</div><div class="value">${l.overall.toFixed(2)}</div></div>
+      <div class="card"><div class="label">만족도(Q10)</div><div class="value">${l.stats['Q10'].avg.toFixed(2)}</div></div>
+      <div class="card"><div class="label">강점 Top1</div><div class="value" style="font-size:13px">${top[0]} ${l.stats[top[0]].avg.toFixed(2)}</div></div>
+      <div class="card"><div class="label">개선 Top1</div><div class="value" style="font-size:13px">${bot[0]} ${l.stats[bot[0]].avg.toFixed(2)}</div></div>
+    </div>
+    <h3>문항별 점수</h3>${renderScoreTable(l.stats)}
+    <h3>구성원 코멘트</h3>${renderQuotes(l.strengths, l.improves)}
+  </section>`;
+}
+
+function renderDivision(d) {
+  return `<section class="report">
+    <h2>${esc(d.name)} <span class="badge">실</span></h2>
+    <div class="sub">소속 팀장 ${d.leaders.length}명 · 응답자 ${d.n}명</div>
+    <div class="kpi">
+      <div class="card"><div class="label">종합 평균</div><div class="value">${d.overall.toFixed(2)}</div></div>
+      <div class="card"><div class="label">만족도(Q10)</div><div class="value">${d.stats['Q10'].avg.toFixed(2)}</div></div>
+      <div class="card"><div class="label">팀장 수</div><div class="value">${d.leaders.length}</div></div>
+      <div class="card"><div class="label">응답 수</div><div class="value">${d.n}</div></div>
+    </div>
+    <h3>소속 팀장 요약</h3>
+    <table><thead><tr><th>팀장</th><th>팀</th><th class="score">종합</th><th class="score">Q10</th><th class="score">N</th></tr></thead>
+    <tbody>${d.leaders.sort((a,b)=>b.overall-a.overall).map(l=>`
+      <tr><td>${esc(l.name)}</td><td>${esc(l.team)}</td>
+        <td class="score">${l.overall.toFixed(2)}</td>
+        <td class="score">${l.stats['Q10'].avg.toFixed(2)}</td>
+        <td class="score">${l.n}</td></tr>`).join('')}</tbody></table>
+    <h3>실 단위 문항별 점수</h3>${renderScoreTable(d.stats)}
+  </section>`;
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+}
+</script>
+</body>
+</html>
